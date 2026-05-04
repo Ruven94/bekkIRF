@@ -1,0 +1,2 @@
+"root_type","shock_type","time","n.ahead","simsamp","seed","max_abs_diff","mean_abs_diff","rmse","abs_equal_1e_3","abs_equal_1e_2","abs_equal_5e_2"
+"spectral","empirical",444,25,100000,123,0.00566513528015045,0.00194200207223342,0.00236132783894066,FALSE,TRUE,TRUE
