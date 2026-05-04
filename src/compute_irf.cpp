@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <random>
 using namespace Rcpp;
 using namespace arma;
 
@@ -49,6 +50,12 @@ inline arma::mat matroot_cpp(const arma::mat& H, const int root_type, const doub
 inline arma::vec compute_eta_cpp(const arma::vec& e, const arma::vec& signs) {
   if (e.n_elem != signs.n_elem) {
     Rcpp::stop("`e` and `signs` must have the same length.");
+  }
+
+  for (arma::uword i = 0; i < signs.n_elem; ++i) {
+    if (signs(i) != -1.0 && signs(i) != 1.0) {
+      Rcpp::stop("`signs` must contain only -1 and 1.");
+    }
   }
 
   arma::vec prod = signs % e;
@@ -170,8 +177,31 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
   int n_sel = K * (K + 1) / 2;
   int n_cirf = K * (K - 1) / 2;
 
+  if (N <= 0) {
+    Rcpp::stop("`xi` must have at least one row.");
+  }
+
+  if (K <= 0) {
+    Rcpp::stop("`xi` must have at least one column.");
+  }
+
+  if (simsamp <= 0) {
+    Rcpp::stop("`simsamp` must be positive.");
+  }
+
+  if (n_ahead <= 0) {
+    Rcpp::stop("`n_ahead` must be positive.");
+  }
+
   if (H_0.n_rows != (arma::uword)K || H_0.n_cols != (arma::uword)K) {
     Rcpp::stop("`H_0` must be a square matrix with dimensions compatible with `xi`.");
+  }
+
+  if (C.n_rows != (arma::uword)K || C.n_cols != (arma::uword)K ||
+      A.n_rows != (arma::uword)K || A.n_cols != (arma::uword)K ||
+      G.n_rows != (arma::uword)K || G.n_cols != (arma::uword)K ||
+      B.n_rows != (arma::uword)K || B.n_cols != (arma::uword)K) {
+    Rcpp::stop("`C`, `A`, `G`, and `B` must be square matrices compatible with `xi`.");
   }
 
   if ((int)shock.n_elem != K) {
@@ -180,6 +210,14 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
 
   if ((int)signs.n_elem != K) {
     Rcpp::stop("`signs` must have length equal to `ncol(xi)`.");
+  }
+
+  if (psi_kurt.n_rows != (arma::uword)K2 || psi_kurt.n_cols != (arma::uword)K2) {
+    Rcpp::stop("`psi_kurt` must have dimensions `K^2 x K^2`.");
+  }
+
+  if (psi_skew.n_rows != (arma::uword)K2 || psi_skew.n_cols != (arma::uword)K) {
+    Rcpp::stop("`psi_skew` must have dimensions `K^2 x K`.");
   }
 
   // Result containers
@@ -195,14 +233,13 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
   if (calc_sirf) SIRF_all = arma::cube(n_ahead, K, simsamp, fill::zeros);
   if (calc_wirf) WIRF_all = arma::cube(n_ahead, K, simsamp, fill::zeros);
 
-  arma::arma_rng::set_seed(seed);
+  std::mt19937 rng(static_cast<std::mt19937::result_type>(seed));
+  std::uniform_int_distribution<int> draw_idx(0, N - 1);
 
   for (int s = 0; s < simsamp; ++s) {
-    arma::arma_rng::set_seed(seed + s);
-
     arma::ivec idx(n_ahead);
     for (int i = 0; i < n_ahead; ++i) {
-      idx(i) = arma::randi(arma::distr_param(0, N - 1));
+      idx(i) = draw_idx(rng);
     }
 
     arma::mat H_base = H_0;

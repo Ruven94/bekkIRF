@@ -3,19 +3,23 @@ Title: Impulse Response Functions for BEKK Models
 Version: 0.0.0.9000
 Authors@R: 
     c(
-      person("Ruven", "Zapf", , "Ruven.Zapf@uni-goettingen.de", role = c("aut", "cre")),
+      person("Ruven", "Zapf", email = "Ruven.Zapf@uni-goettingen.de", role = c("aut", "cre")),
       person("Helmut", "Herwartz", role = "aut")
     )
+Author: Ruven Zapf [aut, cre],
+    Helmut Herwartz [aut]
+Maintainer: Ruven Zapf <Ruven.Zapf@uni-goettingen.de>
 Description: Provides a simulation-based approach to compute impulse response functions for asymmetric multivariate GARCH models.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Suggests: 
+    BEKKs,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
-    BEKKs,
     Rcpp
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppArmadillo
