@@ -9,11 +9,13 @@ bekk_bootstrap(
   bekk_spec_model = NULL,
   data = NULL,
   bootsamp = 999,
-  cores = max(1L, parallel::detectCores() - 1L),
+  cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE),
   root_type = c("spectral", "cholesky", "spec", "chol"),
   seed = 123L,
   max_iter = 50,
   crit = 1e-09,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = TRUE,
   chunk_size = NULL
 )
@@ -40,6 +42,13 @@ Use \code{"spectral"}/\code{"spec"} or \code{"cholesky"}/\code{"chol"}.}
 \code{\link[BEKKs:bekk_fit]{BEKKs::bekk_fit()}}.}
 
 \item{crit}{Convergence criterion passed to \code{\link[BEKKs:bekk_fit]{BEKKs::bekk_fit()}}.}
+
+\item{center}{Logical. If \code{TRUE}, each bootstrap return sample is centered
+column-wise before re-estimation.}
+
+\item{xi_outlier_threshold}{Numeric threshold used to remove standardized
+innovations before resampling. Rows with at least one absolute component
+larger than the threshold are skipped. Set to \code{NULL} to disable filtering.}
 
 \item{progress}{Logical. If \code{TRUE}, print a text progress bar.}
 

@@ -51,6 +51,11 @@ summarise_bootstrap <- function(x, label) {
     cores = x$settings$cores,
     root_type = x$settings$root_type,
     max_iter = x$settings$max_iter,
+    center = x$settings$center,
+    xi_outlier_threshold = if (is.null(x$settings$xi_outlier_threshold)) NA_real_ else x$settings$xi_outlier_threshold,
+    xi_original_n = x$settings$xi_original_n,
+    xi_resample_n = x$settings$xi_resample_n,
+    xi_removed_n = x$settings$xi_removed_n,
     converged = sum(x$converged),
     failed = sum(!x$converged),
     error_count = sum(!is.na(x$error)),
@@ -82,6 +87,8 @@ main_boot <- bekk_bootstrap(
   root_type = "spectral",
   seed = 20260505L,
   max_iter = 5,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = TRUE,
   chunk_size = main_cores
 )
@@ -103,6 +110,8 @@ serial_boot <- bekk_bootstrap(
   root_type = "spec",
   seed = 101L,
   max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = FALSE
 )
 expect_true(identical(dim(serial_boot$C0), c(K, K, 3L)), "serial C0 dimensions")
@@ -118,6 +127,8 @@ parallel_boot <- bekk_bootstrap(
   root_type = "spectral",
   seed = 202L,
   max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = FALSE,
   chunk_size = 1L
 )
@@ -132,6 +143,8 @@ repro_1 <- bekk_bootstrap(
   root_type = "spectral",
   seed = 909L,
   max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = FALSE
 )
 repro_2 <- bekk_bootstrap(
@@ -141,6 +154,8 @@ repro_2 <- bekk_bootstrap(
   root_type = "spectral",
   seed = 909L,
   max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = FALSE
 )
 expect_true(isTRUE(all.equal(repro_1$C0, repro_2$C0, tolerance = 0)), "C0 reproducibility")
@@ -157,10 +172,45 @@ chol_boot <- bekk_bootstrap(
   root_type = "cholesky",
   seed = 303L,
   max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = 5,
   progress = FALSE
 )
 expect_true(chol_boot$settings$root_type == "chol", "cholesky alias maps to chol")
 expect_true(identical(dim(chol_boot$G), c(K, K, 2L)), "cholesky G dimensions")
+
+cat("Running outlier filter disabled check...\n")
+no_filter_boot <- bekk_bootstrap(
+  bekk_model,
+  bekk_spec_model = spec,
+  data = gold_msci_returns,
+  bootsamp = 2L,
+  cores = 1L,
+  root_type = "spectral",
+  seed = 404L,
+  max_iter = 1,
+  center = TRUE,
+  xi_outlier_threshold = NULL,
+  progress = FALSE
+)
+expect_true(is.null(no_filter_boot$settings$xi_outlier_threshold), "NULL xi threshold is stored")
+expect_true(no_filter_boot$settings$xi_removed_n == 0L, "NULL xi threshold removes no observations")
+
+cat("Running center disabled check...\n")
+no_center_boot <- bekk_bootstrap(
+  bekk_model,
+  bekk_spec_model = spec,
+  data = gold_msci_returns,
+  bootsamp = 2L,
+  cores = 1L,
+  root_type = "spectral",
+  seed = 505L,
+  max_iter = 1,
+  center = FALSE,
+  xi_outlier_threshold = 5,
+  progress = FALSE
+)
+expect_true(isFALSE(no_center_boot$settings$center), "center = FALSE is stored")
 
 cat("Running input validation checks...\n")
 err_bootsamp <- tryCatch(
@@ -171,8 +221,28 @@ err_cores <- tryCatch(
   bekk_bootstrap(bekk_model, bootsamp = 1L, cores = 0L, progress = FALSE),
   error = function(e) e
 )
+err_threshold <- tryCatch(
+  bekk_bootstrap(bekk_model, bootsamp = 1L, xi_outlier_threshold = 0, progress = FALSE),
+  error = function(e) e
+)
+warn_mean <- tryCatch(
+  {
+    bekk_bootstrap(
+      bekk_model,
+      data = gold_msci_returns + 1,
+      bootsamp = 1L,
+      cores = 1L,
+      max_iter = 1,
+      progress = FALSE
+    )
+    FALSE
+  },
+  warning = function(w) grepl("not centered", conditionMessage(w), fixed = TRUE)
+)
 expect_true(inherits(err_bootsamp, "error"), "invalid bootsamp errors")
 expect_true(inherits(err_cores, "error"), "invalid cores errors")
+expect_true(inherits(err_threshold, "error"), "invalid xi threshold errors")
+expect_true(warn_mean, "non-centered data warns")
 
 summary <- rbind(
   summarise_bootstrap(main_boot, "main_50_spectral_parallel"),
@@ -180,8 +250,42 @@ summary <- rbind(
   summarise_bootstrap(parallel_boot, "parallel_2_spectral"),
   summarise_bootstrap(repro_1, "repro_1"),
   summarise_bootstrap(repro_2, "repro_2"),
-  summarise_bootstrap(chol_boot, "chol_2")
+  summarise_bootstrap(chol_boot, "chol_2"),
+  summarise_bootstrap(no_filter_boot, "no_filter_2"),
+  summarise_bootstrap(no_center_boot, "no_center_2")
 )
+
+start_value <- c(
+  as.vector(bekk_model$C0),
+  as.vector(bekk_model$A),
+  as.vector(bekk_model$G)
+)
+
+boot_mean <- c(
+  apply(main_boot$C0, c(1, 2), mean, na.rm = TRUE),
+  apply(main_boot$A, c(1, 2), mean, na.rm = TRUE),
+  apply(main_boot$G, c(1, 2), mean, na.rm = TRUE)
+)
+
+boot_sd <- c(
+  apply(main_boot$C0, c(1, 2), stats::sd, na.rm = TRUE),
+  apply(main_boot$A, c(1, 2), stats::sd, na.rm = TRUE),
+  apply(main_boot$G, c(1, 2), stats::sd, na.rm = TRUE)
+)
+
+boot_q025 <- c(
+  apply(main_boot$C0, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE),
+  apply(main_boot$A, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE),
+  apply(main_boot$G, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE)
+)
+
+boot_q975 <- c(
+  apply(main_boot$C0, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE),
+  apply(main_boot$A, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE),
+  apply(main_boot$G, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE)
+)
+
+delta_mean <- boot_mean - start_value
 
 parameter_summary <- data.frame(
   parameter = c(
@@ -189,31 +293,20 @@ parameter_summary <- data.frame(
     paste0("A[", row(main_boot$A[, , 1L]), ",", col(main_boot$A[, , 1L]), "]"),
     paste0("G[", row(main_boot$G[, , 1L]), ",", col(main_boot$G[, , 1L]), "]")
   ),
-  mean = c(
-    apply(main_boot$C0, c(1, 2), mean, na.rm = TRUE),
-    apply(main_boot$A, c(1, 2), mean, na.rm = TRUE),
-    apply(main_boot$G, c(1, 2), mean, na.rm = TRUE)
-  ),
-  sd = c(
-    apply(main_boot$C0, c(1, 2), stats::sd, na.rm = TRUE),
-    apply(main_boot$A, c(1, 2), stats::sd, na.rm = TRUE),
-    apply(main_boot$G, c(1, 2), stats::sd, na.rm = TRUE)
-  ),
-  q025 = c(
-    apply(main_boot$C0, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE),
-    apply(main_boot$A, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE),
-    apply(main_boot$G, c(1, 2), stats::quantile, probs = 0.025, na.rm = TRUE)
-  ),
-  q975 = c(
-    apply(main_boot$C0, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE),
-    apply(main_boot$A, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE),
-    apply(main_boot$G, c(1, 2), stats::quantile, probs = 0.975, na.rm = TRUE)
-  )
+  start_value = start_value,
+  mean = boot_mean,
+  delta_mean = delta_mean,
+  relative_delta_mean = ifelse(abs(start_value) > .Machine$double.eps, delta_mean / start_value, NA_real_),
+  delta_mean_in_sd = ifelse(boot_sd > .Machine$double.eps, delta_mean / boot_sd, NA_real_),
+  sd = boot_sd,
+  q025 = boot_q025,
+  q975 = boot_q975,
+  start_inside_q025_q975 = start_value >= boot_q025 & start_value <= boot_q975
 )
 
 summary_file <- file.path(root, "dev", "results", "bootstrap_validation_summary.csv")
 parameter_file <- file.path(root, "dev", "results", "bootstrap_validation_parameter_summary.csv")
-object_file <- file.path(root, "dev", "results", "bootstrap_validation_main_bootstrap.rds")
+object_file <- file.path(root, "dev", "cache", "bootstrap_validation_main_bootstrap.rds")
 
 utils::write.csv(summary, summary_file, row.names = FALSE)
 utils::write.csv(parameter_summary, parameter_file, row.names = FALSE)
