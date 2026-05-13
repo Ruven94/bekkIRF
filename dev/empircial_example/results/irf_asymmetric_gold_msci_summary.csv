@@ -1,0 +1,2 @@
+"root_type","shock_type","time","n.ahead","simsamp","bootsamp","bootstrap_converged","bootstrap_failed","irf_bootstrap_used","irf_bootstrap_candidates","irf_bootstrap_cores","ci_lower","ci_upper"
+"spectral","empirical",444,100,100000,100,100,0,100,100,8,0.025,0.975
