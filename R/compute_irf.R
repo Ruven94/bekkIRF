@@ -18,6 +18,17 @@
 #' @param seed Integer random seed.
 #' @param calc_virf,calc_cirf,calc_kirf,calc_sirf,calc_wirf Logical flags for
 #'   the requested IRF types.
+#' @param bekk_bootstrap Optional `"bekkBootstrap"` object. If supplied,
+#'   `compute_irf()` recomputes the selected IRFs for each converged bootstrap
+#'   parameter draw and returns pointwise bootstrap confidence intervals.
+#' @param ci_level Confidence level for central bootstrap intervals, e.g.
+#'   `0.95`, or a length-two numeric vector of quantile probabilities.
+#' @param bootstrap_cores Number of parallel workers used for bootstrap IRF
+#'   paths. Ignored if `bekk_bootstrap = NULL`.
+#' @param bootstrap_progress Logical. If `TRUE`, print a text progress bar for
+#'   bootstrap IRF paths.
+#' @param bootstrap_chunk_size Number of bootstrap IRF paths submitted per
+#'   parallel batch. The default uses `bootstrap_cores`.
 #'
 #' @returns A list with mean IRF matrices for the selected IRF types.
 #' @export
@@ -33,7 +44,12 @@ compute_irf <- function(bekk_model,
                         calc_cirf = TRUE,
                         calc_kirf = FALSE,
                         calc_sirf = FALSE,
-                        calc_wirf = FALSE) {
+                        calc_wirf = FALSE,
+                        bekk_bootstrap = NULL,
+                        ci_level = 0.95,
+                        bootstrap_cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE),
+                        bootstrap_progress = TRUE,
+                        bootstrap_chunk_size = NULL) {
   root_type <- match.arg(root_type)
   shock_type <- match.arg(shock_type)
 
@@ -112,7 +128,7 @@ compute_irf <- function(bekk_model,
 
   shock <- as.numeric(shock)
 
-  compute_irf_core_cpp(
+  out <- compute_irf_core_cpp(
     H_0 = H_0,
     shock = shock,
     xi = xi,
@@ -134,4 +150,53 @@ compute_irf <- function(bekk_model,
     calc_sirf = isTRUE(calc_sirf),
     calc_wirf = isTRUE(calc_wirf)
   )
+
+  class(out) <- c("bekkIRF", "list")
+
+  if (is.null(bekk_bootstrap)) {
+    return(out)
+  }
+
+  ci_probs <- compute_irf_ci_probs(ci_level)
+  bootstrap_irf <- compute_irf_bootstrap_paths(
+    bekk_bootstrap = bekk_bootstrap,
+    main_out = out,
+    H_0 = H_0,
+    shock = shock,
+    xi = xi,
+    signs = signs,
+    psi_kurt = psi_kurt,
+    psi_skew = psi_skew,
+    root_type_id = root_type_id,
+    asym = asym,
+    simsamp = as.integer(simsamp),
+    n_ahead = as.integer(n.ahead),
+    seed = as.integer(seed),
+    calc_virf = isTRUE(calc_virf),
+    calc_cirf = isTRUE(calc_cirf),
+    calc_kirf = isTRUE(calc_kirf),
+    calc_sirf = isTRUE(calc_sirf),
+    calc_wirf = isTRUE(calc_wirf),
+    cores = bootstrap_cores,
+    progress = bootstrap_progress,
+    chunk_size = bootstrap_chunk_size
+  )
+
+  out$bootstrap_irf <- bootstrap_irf$paths
+  out$ci <- compute_irf_bootstrap_ci(bootstrap_irf$paths, ci_probs)
+  out$bootstrap_info <- list(
+    ci_probs = ci_probs,
+    ci_level = if (length(ci_level) == 1L) ci_level else NA_real_,
+    requested_replications = bootstrap_irf$requested_replications,
+    candidate_replications = bootstrap_irf$candidate_replications,
+    used_replications = bootstrap_irf$used_replications,
+    used_indices = bootstrap_irf$used_indices,
+    skipped_indices = bootstrap_irf$skipped_indices,
+    errors = bootstrap_irf$errors,
+    common_random_numbers = TRUE,
+    cores = bootstrap_irf$cores,
+    chunk_size = bootstrap_irf$chunk_size
+  )
+
+  out
 }

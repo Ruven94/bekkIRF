@@ -17,7 +17,12 @@ compute_irf(
   calc_cirf = TRUE,
   calc_kirf = FALSE,
   calc_sirf = FALSE,
-  calc_wirf = FALSE
+  calc_wirf = FALSE,
+  bekk_bootstrap = NULL,
+  ci_level = 0.95,
+  bootstrap_cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE),
+  bootstrap_progress = TRUE,
+  bootstrap_chunk_size = NULL
 )
 }
 \arguments{
@@ -43,6 +48,22 @@ shock or \code{"empirical"} to use \code{xi[time, ]}.}
 
 \item{calc_virf, calc_cirf, calc_kirf, calc_sirf, calc_wirf}{Logical flags for
 the requested IRF types.}
+
+\item{bekk_bootstrap}{Optional \code{"bekkBootstrap"} object. If supplied,
+\code{compute_irf()} recomputes the selected IRFs for each converged bootstrap
+parameter draw and returns pointwise bootstrap confidence intervals.}
+
+\item{ci_level}{Confidence level for central bootstrap intervals, e.g.
+\code{0.95}, or a length-two numeric vector of quantile probabilities.}
+
+\item{bootstrap_cores}{Number of parallel workers used for bootstrap IRF
+paths. Ignored if \code{bekk_bootstrap = NULL}.}
+
+\item{bootstrap_progress}{Logical. If \code{TRUE}, print a text progress bar for
+bootstrap IRF paths.}
+
+\item{bootstrap_chunk_size}{Number of bootstrap IRF paths submitted per
+parallel batch. The default uses \code{bootstrap_cores}.}
 }
 \value{
 A list with mean IRF matrices for the selected IRF types.
