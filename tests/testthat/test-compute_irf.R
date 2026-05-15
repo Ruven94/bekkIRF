@@ -311,3 +311,56 @@ test_that("compute_irf validates bootstrap parallel control arguments", {
     fixed = TRUE
   )
 })
+
+test_that("bekkIRF print, summary, and plot methods work", {
+  K <- 2
+  N <- 30
+  data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = diag(0.1, K),
+    A = diag(0.1, K),
+    G = diag(0.8, K),
+    asymmetric = FALSE
+  )
+
+  out <- compute_irf(
+    bekk_model,
+    shock = c(1, 0),
+    time = 10,
+    simsamp = 3,
+    n.ahead = 2,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = FALSE,
+    calc_sirf = FALSE,
+    calc_wirf = FALSE
+  )
+
+  printed <- capture.output(print(out))
+  expect_true(any(grepl("bekkIRF object", printed, fixed = TRUE)))
+  expect_true(any(grepl("Bootstrap: none", printed, fixed = TRUE)))
+
+  out_summary <- summary(out)
+  expect_s3_class(out_summary, "summary_bekkIRF")
+  expect_equal(out_summary$irf$type, c("VIRF", "CIRF"))
+  expect_equal(out_summary$settings$n.ahead, 2L)
+  expect_true(isFALSE(out_summary$settings$bootstrap))
+
+  summary_printed <- capture.output(print(out_summary))
+  expect_true(any(grepl("Summary of bekkIRF object", summary_printed, fixed = TRUE)))
+
+  p_virf <- plot(out, type = "VIRF")
+  p_all <- plot(out)
+  expect_s3_class(p_virf, "ggplot")
+  expect_s3_class(p_all, "ggplot")
+
+  expect_error(
+    plot(out, type = "WIRF"),
+    "Requested IRF type is not available: WIRF.",
+    fixed = TRUE
+  )
+})

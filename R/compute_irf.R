@@ -151,6 +151,24 @@ compute_irf <- function(bekk_model,
     calc_wirf = isTRUE(calc_wirf)
   )
 
+  out$settings <- list(
+    root_type = root_type,
+    shock_type = shock_type,
+    time = time,
+    simsamp = as.integer(simsamp),
+    n.ahead = as.integer(n.ahead),
+    seed = as.integer(seed),
+    asymmetric = asym,
+    calc_irfs = list(
+      VIRF = isTRUE(calc_virf),
+      CIRF = isTRUE(calc_cirf),
+      KIRF = isTRUE(calc_kirf),
+      SIRF = isTRUE(calc_sirf),
+      WIRF = isTRUE(calc_wirf)
+    ),
+    bootstrap = FALSE
+  )
+
   class(out) <- c("bekkIRF", "list")
 
   if (is.null(bekk_bootstrap)) {
@@ -197,6 +215,7 @@ compute_irf <- function(bekk_model,
     cores = bootstrap_irf$cores,
     chunk_size = bootstrap_irf$chunk_size
   )
+  out$settings$bootstrap <- TRUE
 
   out
 }
