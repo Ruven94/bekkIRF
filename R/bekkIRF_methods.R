@@ -9,23 +9,117 @@ bekk_irf_available_types <- function(x) {
   types
 }
 
-bekk_irf_component_names <- function(mat, type) {
-  component_names <- colnames(mat)
-  if (is.null(component_names)) {
-    component_names <- paste0(type, "_", seq_len(ncol(mat)))
+bekk_irf_infer_k <- function(n_components, type) {
+  if (type %in% c("VIRF", "KIRF")) {
+    k <- (sqrt(8 * n_components + 1) - 1) / 2
+  } else if (type == "CIRF") {
+    k <- (1 + sqrt(1 + 8 * n_components)) / 2
+  } else {
+    k <- n_components
   }
-  component_names
+
+  if (!is.finite(k) || abs(k - round(k)) > sqrt(.Machine$double.eps)) {
+    return(n_components)
+  }
+  as.integer(round(k))
 }
 
-bekk_irf_matrix_to_long <- function(mat, type, value_name = "value") {
+bekk_irf_series_names <- function(x, mat = NULL, type = NULL) {
+  series_names <- x$settings$series_names
+  if (!is.null(series_names)) {
+    return(as.character(series_names))
+  }
+
+  if (!is.null(mat) && !is.null(type)) {
+    return(paste0("Series ", seq_len(bekk_irf_infer_k(ncol(mat), type))))
+  }
+
+  "Series 1"
+}
+
+bekk_irf_component_label <- function(type, series_names, i, j = i) {
+  if (i == j) {
+    paste0(type, "_{", series_names[i], "}")
+  } else {
+    paste0(type, "_{", series_names[i], ", ", series_names[j], "}")
+  }
+}
+
+bekk_irf_component_meta <- function(mat, type, series_names) {
+  n_components <- ncol(mat)
+  K <- length(series_names)
+
+  if (type %in% c("VIRF", "KIRF")) {
+    meta <- data.frame(
+      component_id = seq_len(n_components),
+      i = integer(n_components),
+      j = integer(n_components),
+      stringsAsFactors = FALSE
+    )
+
+    idx <- 1L
+    for (col in seq_len(K)) {
+      for (row in col:K) {
+        if (idx <= n_components) {
+          meta$i[idx] <- col
+          meta$j[idx] <- row
+          idx <- idx + 1L
+        }
+      }
+    }
+  } else if (type == "CIRF") {
+    meta <- data.frame(
+      component_id = seq_len(n_components),
+      i = integer(n_components),
+      j = integer(n_components),
+      stringsAsFactors = FALSE
+    )
+
+    idx <- 1L
+    for (i in seq_len(max(K - 1L, 0L))) {
+      for (j in (i + 1L):K) {
+        if (idx <= n_components) {
+          meta$i[idx] <- i
+          meta$j[idx] <- j
+          idx <- idx + 1L
+        }
+      }
+    }
+  } else {
+    meta <- data.frame(
+      component_id = seq_len(n_components),
+      i = seq_len(n_components),
+      j = seq_len(n_components),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  component_names <- colnames(mat)
+  if (is.null(component_names)) {
+    component_names <- vapply(
+      seq_len(nrow(meta)),
+      function(k) bekk_irf_component_label(type, series_names, meta$i[k], meta$j[k]),
+      character(1L)
+    )
+  }
+
+  meta$component <- component_names
+  meta
+}
+
+bekk_irf_matrix_to_long <- function(mat, type, series_names, value_name = "value") {
   if (is.null(mat)) {
     return(NULL)
   }
+  meta <- bekk_irf_component_meta(mat, type, series_names)
 
   out <- data.frame(
     horizon = rep(seq_len(nrow(mat)), times = ncol(mat)),
     type = type,
-    component = rep(bekk_irf_component_names(mat, type), each = nrow(mat)),
+    component_id = rep(meta$component_id, each = nrow(mat)),
+    i = rep(meta$i, each = nrow(mat)),
+    j = rep(meta$j, each = nrow(mat)),
+    component = rep(meta$component, each = nrow(mat)),
     value = as.vector(mat),
     stringsAsFactors = FALSE
   )
@@ -33,20 +127,121 @@ bekk_irf_matrix_to_long <- function(mat, type, value_name = "value") {
   out
 }
 
-bekk_irf_plot_data <- function(x, types, ci = TRUE) {
+bekk_irf_normalize_type <- function(type) {
+  if (length(type) != 1L || is.na(type)) {
+    stop("`type` must be a single IRF type.")
+  }
+  type_upper <- toupper(type)
+  if (type_upper == "ALL") {
+    return("all")
+  }
+  valid <- bekk_irf_type_order
+  match_idx <- match(type_upper, valid)
+  if (is.na(match_idx)) {
+    stop("`type` must be one of: all, ", paste(valid, collapse = ", "), ".")
+  }
+  valid[match_idx]
+}
+
+bekk_irf_normalize_components <- function(components) {
+  if (is.null(components)) {
+    return(NULL)
+  }
+  if (!is.numeric(components) || anyNA(components) || length(components) > 2L || length(components) < 1L) {
+    stop("`components` must be NULL, a single component index, or a length-two numeric pair.")
+  }
+  if (any(components < 1) || any(components != as.integer(components))) {
+    stop("`components` must contain positive integer indices.")
+  }
+  as.integer(components)
+}
+
+bekk_irf_filter_components <- function(plot_data, components) {
+  if (is.null(components)) {
+    return(plot_data)
+  }
+
+  if (length(components) == 1L) {
+    i <- components[1L]
+    keep <- plot_data$i == i & plot_data$j == i
+  } else {
+    i <- min(components)
+    j <- max(components)
+    keep <- plot_data$i == i & plot_data$j == j
+  }
+
+  plot_data[keep, , drop = FALSE]
+}
+
+bekk_irf_validate_limits <- function(limits, name) {
+  if (is.null(limits)) {
+    return(NULL)
+  }
+  if (!is.numeric(limits) || length(limits) != 2L || anyNA(limits) || limits[1L] >= limits[2L]) {
+    stop("`", name, "` must be NULL or a numeric vector with lower < upper.")
+  }
+  limits
+}
+
+bekk_irf_apply_labels <- function(values, labels, name) {
+  values <- as.character(values)
+  unique_values <- unique(values)
+
+  if (is.null(labels)) {
+    return(factor(values, levels = unique_values))
+  }
+  if (!is.character(labels) || anyNA(labels)) {
+    stop("`", name, "` must be NULL or a character vector.")
+  }
+
+  if (!is.null(names(labels)) && any(nzchar(names(labels)))) {
+    mapped <- labels[values]
+    missing <- unique(values[is.na(mapped)])
+    if (length(missing) > 0L) {
+      stop(
+        "`", name, "` is missing labels for: ",
+        paste(missing, collapse = ", "),
+        "."
+      )
+    }
+    return(factor(unname(mapped), levels = unique(unname(labels[unique_values]))))
+  }
+
+  if (length(labels) == 1L) {
+    return(factor(rep(labels, length(values)), levels = labels))
+  }
+  if (length(labels) != length(unique_values)) {
+    stop(
+      "`", name, "` must have length 1, length equal to the number of plotted panels, ",
+      "or be a named character vector."
+    )
+  }
+
+  mapped <- stats::setNames(labels, unique_values)[values]
+  factor(unname(mapped), levels = labels)
+}
+
+bekk_irf_plot_data <- function(x, types, ci = TRUE, components = NULL) {
   plot_data <- do.call(
     rbind,
     lapply(types, function(type) {
-      center <- bekk_irf_matrix_to_long(x[[paste0(type, "_mean")]], type, "mean")
+      mat <- x[[paste0(type, "_mean")]]
+      center <- bekk_irf_matrix_to_long(
+        mat,
+        type,
+        bekk_irf_series_names(x, mat, type),
+        "mean"
+      )
       if (is.null(center)) {
         return(NULL)
       }
 
       if (isTRUE(ci) && !is.null(x$ci[[type]])) {
-        lower <- bekk_irf_matrix_to_long(x$ci[[type]]$lower, type, "lower")
-        upper <- bekk_irf_matrix_to_long(x$ci[[type]]$upper, type, "upper")
-        center <- merge(center, lower, by = c("horizon", "type", "component"), all.x = TRUE)
-        center <- merge(center, upper, by = c("horizon", "type", "component"), all.x = TRUE)
+        lower <- bekk_irf_matrix_to_long(x$ci[[type]]$lower, type, bekk_irf_series_names(x, mat, type), "lower")
+        upper <- bekk_irf_matrix_to_long(x$ci[[type]]$upper, type, bekk_irf_series_names(x, mat, type), "upper")
+        by_cols <- c("horizon", "type", "component_id", "i", "j", "component")
+        center <- merge(center, lower, by = by_cols, all.x = TRUE)
+        center <- merge(center, upper, by = by_cols, all.x = TRUE)
       } else {
         center$lower <- NA_real_
         center$upper <- NA_real_
@@ -56,7 +251,13 @@ bekk_irf_plot_data <- function(x, types, ci = TRUE) {
     })
   )
 
+  plot_data <- bekk_irf_filter_components(plot_data, components)
+  if (nrow(plot_data) == 0L) {
+    stop("Requested component is not available for the selected IRF type(s).")
+  }
+
   plot_data$type <- factor(plot_data$type, levels = bekk_irf_type_order)
+  plot_data$component <- factor(plot_data$component, levels = unique(plot_data$component))
   plot_data
 }
 
@@ -209,23 +410,56 @@ print.summary_bekkIRF <- function(x, ...) {
 #' @param x Object of class `"bekkIRF"`.
 #' @param y Ignored.
 #' @param type IRF type to plot. Use `"all"` for all available IRFs, or one of
-#'   `"VIRF"`, `"CIRF"`, `"SIRF"`, `"KIRF"`, `"WIRF"`.
+#'   `"VIRF"`, `"CIRF"`, `"SIRF"`, `"KIRF"`, `"WIRF"`. Matching is
+#'   case-insensitive.
 #' @param ci Logical. If `TRUE`, plot bootstrap confidence intervals when
 #'   available.
+#' @param components Optional component selector. Use a single integer for a
+#'   own-series component, e.g. `1`, or a length-two pair such as `c(1, 2)`.
+#' @param title,subtitle Plot title and subtitle. If `title = NULL`, an
+#'   informative default title is used. If `subtitle = NULL`, no subtitle is
+#'   shown.
+#' @param xlab,ylab Axis labels.
+#' @param xlim,ylim Optional axis limits passed to `ggplot2::coord_cartesian()`.
+#' @param type_label Optional custom label(s) for the IRF type strip. Use a
+#'   single character value, a vector in plotted type order, or a named vector.
+#' @param component_labels Optional custom label(s) for component strips. Use a
+#'   single character value, a vector in plotted component order, or a named
+#'   vector mapping default component labels to custom labels.
+#' @param line_color Line color.
+#' @param ci_fill Fill color for bootstrap confidence ribbons.
+#' @param ci_alpha Alpha transparency for bootstrap confidence ribbons.
+#' @param line_width Line width.
+#' @param zero_line Logical. If `TRUE`, draw a horizontal zero line.
 #' @param ... Additional arguments ignored.
 #'
 #' @returns A `ggplot` object.
 #' @export
 plot.bekkIRF <- function(x,
                          y = NULL,
-                         type = c("all", "VIRF", "CIRF", "SIRF", "KIRF", "WIRF"),
+                         type = "all",
                          ci = TRUE,
+                         components = NULL,
+                         title = NULL,
+                         subtitle = NULL,
+                         xlab = "Horizon",
+                         ylab = "IRF",
+                         xlim = NULL,
+                         ylim = NULL,
+                         type_label = NULL,
+                         component_labels = NULL,
+                         line_color = "#023047",
+                         ci_fill = "#8ecae6",
+                         ci_alpha = 0.35,
+                         line_width = 0.75,
+                         zero_line = TRUE,
                          ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package `ggplot2` is required for plotting.")
   }
 
-  type <- match.arg(type)
+  type <- bekk_irf_normalize_type(type)
+  components <- bekk_irf_normalize_components(components)
   available_types <- bekk_irf_available_types(x)
   if (length(available_types) == 0L) {
     stop("No IRF matrices are available to plot.")
@@ -237,36 +471,65 @@ plot.bekkIRF <- function(x,
     stop("Requested IRF type is not available: ", paste(missing_types, collapse = ", "), ".")
   }
 
-  plot_data <- bekk_irf_plot_data(x, types, ci = ci)
+  if (length(ci) != 1L || is.na(ci)) {
+    stop("`ci` must be TRUE or FALSE.")
+  }
+  if (length(zero_line) != 1L || is.na(zero_line)) {
+    stop("`zero_line` must be TRUE or FALSE.")
+  }
+  xlim <- bekk_irf_validate_limits(xlim, "xlim")
+  ylim <- bekk_irf_validate_limits(ylim, "ylim")
+
+  plot_data <- bekk_irf_plot_data(x, types, ci = isTRUE(ci), components = components)
+  plot_data$type_label <- bekk_irf_apply_labels(plot_data$type, type_label, "type_label")
+  plot_data$component_label <- bekk_irf_apply_labels(plot_data$component, component_labels, "component_labels")
   has_ci <- isTRUE(ci) && any(is.finite(plot_data$lower)) && any(is.finite(plot_data$upper))
 
-  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = horizon, y = mean)) +
-    ggplot2::geom_hline(yintercept = 0, color = "grey78", linewidth = 0.3)
+  if (is.null(title)) {
+    title <- if (type == "all") {
+      "BEKK impulse response functions"
+    } else {
+      paste(type, "impulse response function")
+    }
+  }
+  if (is.null(subtitle)) {
+    subtitle <- NULL
+  }
+
+  p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = horizon, y = mean))
+
+  if (isTRUE(zero_line)) {
+    p <- p + ggplot2::geom_hline(yintercept = 0, color = "grey55", linewidth = 0.45)
+  }
 
   if (has_ci) {
     p <- p +
       ggplot2::geom_ribbon(
         ggplot2::aes(ymin = lower, ymax = upper),
-        fill = "#8ecae6",
-        alpha = 0.35,
+        fill = ci_fill,
+        alpha = ci_alpha,
         na.rm = TRUE
       )
   }
 
   p <- p +
-    ggplot2::geom_line(color = "#023047", linewidth = 0.75, na.rm = TRUE) +
-    ggplot2::facet_wrap(type ~ component, scales = "free_y") +
+    ggplot2::geom_line(color = line_color, linewidth = line_width, na.rm = TRUE) +
+    ggplot2::facet_wrap(type_label ~ component_label, scales = "free_y") +
     ggplot2::labs(
-      title = if (type == "all") "BEKK impulse response functions" else paste(type, "impulse response functions"),
-      subtitle = bekk_irf_settings_line(x),
-      x = "Horizon",
-      y = "IRF"
+      title = title,
+      subtitle = subtitle,
+      x = xlab,
+      y = ylab
     ) +
     ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
       strip.text = ggplot2::element_text(face = "bold"),
       panel.grid.minor = ggplot2::element_blank()
     )
+
+  if (!is.null(xlim) || !is.null(ylim)) {
+    p <- p + ggplot2::coord_cartesian(xlim = xlim, ylim = ylim)
+  }
 
   p
 }

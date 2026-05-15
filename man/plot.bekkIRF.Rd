@@ -1,0 +1,77 @@
+% Generated manually. Please keep in sync with R/bekkIRF_methods.R.
+\name{plot.bekkIRF}
+\alias{plot.bekkIRF}
+\title{Plot BEKK impulse response functions}
+\usage{
+\method{plot}{bekkIRF}(
+  x,
+  y = NULL,
+  type = "all",
+  ci = TRUE,
+  components = NULL,
+  title = NULL,
+  subtitle = NULL,
+  xlab = "Horizon",
+  ylab = "IRF",
+  xlim = NULL,
+  ylim = NULL,
+  type_label = NULL,
+  component_labels = NULL,
+  line_color = "#023047",
+  ci_fill = "#8ecae6",
+  ci_alpha = 0.35,
+  line_width = 0.75,
+  zero_line = TRUE,
+  ...
+)
+}
+\arguments{
+\item{x}{Object of class \code{"bekkIRF"}.}
+
+\item{y}{Ignored.}
+
+\item{type}{IRF type to plot. Use \code{"all"} for all available IRFs, or one of
+\code{"VIRF"}, \code{"CIRF"}, \code{"SIRF"}, \code{"KIRF"}, \code{"WIRF"}.
+Matching is case-insensitive.}
+
+\item{ci}{Logical. If \code{TRUE}, plot bootstrap confidence intervals when
+available.}
+
+\item{components}{Optional component selector. Use a single integer for an
+own-series component, e.g. \code{1}, or a length-two pair such as
+\code{c(1, 2)}.}
+
+\item{title, subtitle}{Plot title and subtitle. If \code{title = NULL}, an
+informative default title is used. If \code{subtitle = NULL}, no subtitle is
+shown.}
+
+\item{xlab, ylab}{Axis labels.}
+
+\item{xlim, ylim}{Optional axis limits passed to \code{ggplot2::coord_cartesian()}.}
+
+\item{type_label}{Optional custom label(s) for the IRF type strip. Use a single
+character value, a vector in plotted type order, or a named vector.}
+
+\item{component_labels}{Optional custom label(s) for component strips. Use a
+single character value, a vector in plotted component order, or a named vector
+mapping default component labels to custom labels.}
+
+\item{line_color}{Line color.}
+
+\item{ci_fill}{Fill color for bootstrap confidence ribbons.}
+
+\item{ci_alpha}{Alpha transparency for bootstrap confidence ribbons.}
+
+\item{line_width}{Line width.}
+
+\item{zero_line}{Logical. If \code{TRUE}, draw a horizontal zero line.}
+
+\item{...}{Additional arguments ignored.}
+}
+\value{
+A \code{ggplot} object.
+}
+\description{
+Plots one or more impulse response functions stored in a \code{"bekkIRF"}
+object. Bootstrap confidence intervals are shown automatically when available.
+}

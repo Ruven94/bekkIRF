@@ -47,6 +47,7 @@ test_that("compute_irf seed is reproducible", {
   K <- 2
   N <- 30
   data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("msci.Ret", "gold.Ret")
   H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
 
   bekk_model <- list(
@@ -84,6 +85,7 @@ test_that("compute_irf computes bootstrap IRF paths and confidence intervals", {
   K <- 2
   N <- 30
   data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("msci.Ret", "gold.Ret")
   H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
 
   bekk_model <- list(
@@ -316,6 +318,7 @@ test_that("bekkIRF print, summary, and plot methods work", {
   K <- 2
   N <- 30
   data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("msci.Ret", "gold.Ret")
   H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
 
   bekk_model <- list(
@@ -357,10 +360,122 @@ test_that("bekkIRF print, summary, and plot methods work", {
   p_all <- plot(out)
   expect_s3_class(p_virf, "ggplot")
   expect_s3_class(p_all, "ggplot")
+  expect_null(p_virf$labels$subtitle)
+  expect_equal(unique(as.character(p_virf$data$component)), c(
+    "VIRF_{msci.Ret}",
+    "VIRF_{msci.Ret, gold.Ret}",
+    "VIRF_{gold.Ret}"
+  ))
+
+  p_pair <- plot(
+    out,
+    type = "virf",
+    components = c(1, 2),
+    title = "Custom title",
+    subtitle = "Custom subtitle",
+    xlab = "h",
+    ylab = "response",
+    xlim = c(1, 2),
+    ylim = c(-1, 1),
+    type_label = "Variance response",
+    component_labels = "MSCI-Gold covariance",
+    line_color = "red",
+    ci_fill = "blue",
+    ci_alpha = 0.1,
+    line_width = 1.2,
+    zero_line = FALSE
+  )
+  expect_s3_class(p_pair, "ggplot")
+  expect_equal(unique(as.character(p_pair$data$component)), "VIRF_{msci.Ret, gold.Ret}")
+  expect_equal(p_pair$labels$title, "Custom title")
+  expect_equal(p_pair$labels$subtitle, "Custom subtitle")
+  expect_equal(p_pair$labels$x, "h")
+  expect_equal(p_pair$labels$y, "response")
+  expect_equal(unique(as.character(p_pair$data$type_label)), "Variance response")
+  expect_equal(unique(as.character(p_pair$data$component_label)), "MSCI-Gold covariance")
+  expect_equal(p_pair$coordinates$limits$x, c(1, 2))
+  expect_equal(p_pair$coordinates$limits$y, c(-1, 1))
 
   expect_error(
     plot(out, type = "WIRF"),
     "Requested IRF type is not available: WIRF.",
+    fixed = TRUE
+  )
+})
+
+test_that("bekkIRF plot component labels and filters work for K greater than 2", {
+  K <- 3
+  N <- 30
+  data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("MSCI", "Gold", "Oil")
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = diag(0.1, K),
+    A = diag(0.1, K),
+    G = diag(0.8, K),
+    asymmetric = FALSE
+  )
+
+  out <- compute_irf(
+    bekk_model,
+    shock = c(1, 0, 0),
+    time = 10,
+    simsamp = 3,
+    n.ahead = 2,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = FALSE,
+    calc_sirf = TRUE,
+    calc_wirf = TRUE
+  )
+
+  expect_equal(out$settings$series_names, c("MSCI", "Gold", "Oil"))
+
+  p_virf <- plot(out, type = "virf")
+  expect_equal(unique(as.character(p_virf$data$component)), c(
+    "VIRF_{MSCI}",
+    "VIRF_{MSCI, Gold}",
+    "VIRF_{MSCI, Oil}",
+    "VIRF_{Gold}",
+    "VIRF_{Gold, Oil}",
+    "VIRF_{Oil}"
+  ))
+
+  p_pair <- plot(out, type = "VIRF", components = c(1, 3))
+  expect_equal(unique(as.character(p_pair$data$component)), "VIRF_{MSCI, Oil}")
+
+  p_own <- plot(out, type = "sirf", components = 3)
+  expect_equal(unique(as.character(p_own$data$component)), "SIRF_{Oil}")
+
+  p_all_pair <- plot(out, type = "all", components = c(2, 3))
+  expect_equal(unique(as.character(p_all_pair$data$type)), c("VIRF", "CIRF"))
+  expect_equal(unique(as.character(p_all_pair$data$component)), c(
+    "VIRF_{Gold, Oil}",
+    "CIRF_{Gold, Oil}"
+  ))
+
+  p_custom_labels <- plot(
+    out,
+    type = "all",
+    components = c(2, 3),
+    type_label = c(VIRF = "Variance", CIRF = "Correlation"),
+    component_labels = c(
+      "VIRF_{Gold, Oil}" = "Gold-Oil covariance",
+      "CIRF_{Gold, Oil}" = "Gold-Oil correlation"
+    )
+  )
+  expect_equal(unique(as.character(p_custom_labels$data$type_label)), c("Variance", "Correlation"))
+  expect_equal(unique(as.character(p_custom_labels$data$component_label)), c(
+    "Gold-Oil covariance",
+    "Gold-Oil correlation"
+  ))
+
+  expect_error(
+    plot(out, type = "CIRF", components = 3),
+    "Requested component is not available for the selected IRF type(s).",
     fixed = TRUE
   )
 })

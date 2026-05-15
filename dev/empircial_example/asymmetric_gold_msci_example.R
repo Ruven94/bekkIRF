@@ -79,6 +79,8 @@ if (file.exists(fit_file)) {
   saveRDS(bekk_model, fit_file)
 }
 
+
+
 cat("Computing main IRFs without bootstrap...\n")
 t <- Sys.time()
 irf_main <- compute_irf(
@@ -262,3 +264,102 @@ cat("Cached bootstrap IRF object:", boot_irf_file, "\n")
 cat("IRF plot:", plot_file, "\n")
 cat("Bootstrap CI plot:", ci_plot_file, "\n")
 cat("Summary:", summary_file, "\n")
+
+
+# ---------------------------------------------------------------------------
+# Load cached outputs
+# ---------------------------------------------------------------------------
+# Run this block on its own if you only want to inspect previously computed
+# results without re-estimating the model or recomputing IRFs.
+
+
+bekk_model_cached <- readRDS(fit_file)
+irf_main_cached <- readRDS(irf_file)
+bekk_boot_cached <- readRDS(boot_file)
+irf_boot_cached <- readRDS(boot_irf_file)
+summary_cached <- utils::read.csv(summary_file)
+plot_data_cached <- utils::read.csv(plot_data_file)
+
+irf_boot_cached$settings$series_names
+irf_boot_cached$settings$series_names <- colnames(bekk_model_cached$data)
+irf_main_cached$settings$series_names <- colnames(bekk_model_cached$data)
+
+
+# ---------------------------------------------------------------------------
+# Plot function examples
+# ---------------------------------------------------------------------------
+# These examples cover all arguments of plot.bekkIRF(). Run them after loading
+# the cached objects above.
+
+plot(irf_boot_cached)
+
+plot(
+  irf_boot_cached,
+  type = "virf",                 # case-insensitive: "virf", "Virf", "VIRF"
+  ci = TRUE,                     # show bootstrap confidence interval ribbons
+  components = c(1, 2),          # own component: 1; pair component: c(1, 2)
+  title = "Gold/MSCI VIRF",
+  subtitle = "Empirical shock at t = 444",
+  xlab = "Horizon",
+  ylab = "VIRF",
+  xlim = c(1, 100),
+  ylim = c(-1, 2),
+  type_label = "Variance impulse response",
+  component_labels = "MSCI-Gold covariance",
+  line_color = "black",
+  ci_fill = "blue",
+  ci_alpha = 0.25,
+  line_width = 0.9,
+  zero_line = TRUE
+)
+
+plot(
+  irf_boot_cached,
+  type = "CIRF",
+  ci = TRUE,
+  title = "Gold/MSCI CIRF",
+  ylab = "Correlation IRF",
+  ylim = c(-0.5, 1),
+  line_color = "#023047",
+  ci_fill = "#8ecae6",
+  ci_alpha = 0.35,
+  zero_line = TRUE
+)
+
+plot(
+  irf_boot_cached,
+  type = "all",
+  ci = FALSE,
+  title = "All BEKK impulse response functions",
+  type_label = c(
+    VIRF = "Variance",
+    CIRF = "Correlation",
+    SIRF = "Skewness",
+    KIRF = "Kurtosis",
+    WIRF = "GMV weights"
+  ),
+  line_color = "black",
+  line_width = 0.7,
+  zero_line = TRUE
+)
+
+plot(
+  irf_boot_cached,
+  type = "VIRF",
+  component_labels = c(
+    "VIRF_{msci.Ret}" = "MSCI variance",
+    "VIRF_{msci.Ret, gold.Ret}" = "MSCI-Gold covariance",
+    "VIRF_{gold.Ret}" = "Gold variance"
+  )
+)
+
+plot(
+  irf_main_cached,
+  type = "VIRF",
+  component_labels = c(
+    "VIRF_{msci.Ret}" = "MSCI variance",
+    "VIRF_{msci.Ret, gold.Ret}" = "MSCI-Gold covariance",
+    "VIRF_{gold.Ret}" = "Gold variance"
+  )
+)
+

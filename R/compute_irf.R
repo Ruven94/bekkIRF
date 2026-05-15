@@ -159,6 +159,7 @@ compute_irf <- function(bekk_model,
     n.ahead = as.integer(n.ahead),
     seed = as.integer(seed),
     asymmetric = asym,
+    series_names = if (is.null(colnames(data))) paste0("Series ", seq_len(K)) else colnames(data),
     calc_irfs = list(
       VIRF = isTRUE(calc_virf),
       CIRF = isTRUE(calc_cirf),
