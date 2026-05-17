@@ -284,6 +284,8 @@ irf_boot_cached$settings$series_names
 irf_boot_cached$settings$series_names <- colnames(bekk_model_cached$data)
 irf_main_cached$settings$series_names <- colnames(bekk_model_cached$data)
 
+print(irf_boot_cached)
+summary(irf_boot_cached)
 
 # ---------------------------------------------------------------------------
 # Plot function examples
