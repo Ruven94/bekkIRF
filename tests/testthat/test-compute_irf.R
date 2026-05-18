@@ -43,6 +43,110 @@ test_that("compute_irf supports spectral and cholesky roots", {
   expect_null(out_chol$bootstrap_irf)
 })
 
+test_that("compute_irf supports root and shock type combinations", {
+  K <- 2
+  N <- 30
+  data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("msci.Ret", "gold.Ret")
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = diag(0.1, K),
+    A = diag(0.1, K),
+    G = diag(0.8, K),
+    asymmetric = FALSE
+  )
+
+  time <- 10L
+  shock <- c(1, -0.5)
+
+  combinations <- expand.grid(
+    root_type = c("spectral", "cholesky"),
+    shock_type = c("structural", "empirical"),
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_len(nrow(combinations))) {
+    root_type <- combinations$root_type[i]
+    shock_type <- combinations$shock_type[i]
+
+    out <- compute_irf(
+      bekk_model,
+      root_type = root_type,
+      shock_type = shock_type,
+      shock = if (shock_type == "structural") shock else NULL,
+      time = time,
+      simsamp = 3,
+      n.ahead = 2,
+      calc_virf = TRUE,
+      calc_cirf = TRUE,
+      calc_kirf = FALSE,
+      calc_sirf = FALSE,
+      calc_wirf = FALSE
+    )
+
+    root_alias <- if (root_type == "spectral") "spec" else "chol"
+    expect_s3_class(out, "bekkIRF")
+    expect_equal(out$settings$root_type, root_alias)
+    expect_equal(out$settings$shock_type, shock_type)
+    expect_equal(dim(out$VIRF_mean), c(2, 3))
+    expect_equal(dim(out$CIRF_mean), c(2, 1))
+    expect_true(all(is.finite(out$VIRF_mean)))
+    expect_true(all(is.finite(out$CIRF_mean)))
+
+    if (shock_type == "structural") {
+      expect_equal(unname(out$settings$shock), shock)
+    } else {
+      xi <- compute_xi(H_t, data, root_type = root_alias)
+      expect_equal(unname(out$settings$shock), unname(xi[time, ]))
+    }
+  }
+})
+
+test_that("compute_irf root aliases match long-form root names", {
+  K <- 2
+  N <- 30
+  data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = diag(0.1, K),
+    A = diag(0.1, K),
+    G = diag(0.8, K),
+    asymmetric = FALSE
+  )
+
+  common_args <- list(
+    bekk_model = bekk_model,
+    shock = c(1, 0),
+    time = 10,
+    simsamp = 4,
+    n.ahead = 3,
+    seed = 42,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = FALSE,
+    calc_sirf = FALSE,
+    calc_wirf = FALSE
+  )
+
+  out_spectral <- do.call(compute_irf, c(common_args, list(root_type = "spectral")))
+  out_spec <- do.call(compute_irf, c(common_args, list(root_type = "spec")))
+  out_cholesky <- do.call(compute_irf, c(common_args, list(root_type = "cholesky")))
+  out_chol <- do.call(compute_irf, c(common_args, list(root_type = "chol")))
+
+  expect_equal(out_spectral$settings$root_type, "spec")
+  expect_equal(out_cholesky$settings$root_type, "chol")
+  expect_equal(out_spectral$VIRF_mean, out_spec$VIRF_mean)
+  expect_equal(out_spectral$CIRF_mean, out_spec$CIRF_mean)
+  expect_equal(out_cholesky$VIRF_mean, out_chol$VIRF_mean)
+  expect_equal(out_cholesky$CIRF_mean, out_chol$CIRF_mean)
+})
+
 test_that("compute_irf supports BEKKs bekk, dbekk, and sbekk model outputs", {
   skip_if_not_installed("BEKKs")
 
