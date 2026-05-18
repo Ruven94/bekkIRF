@@ -139,6 +139,70 @@ test_that("compute_irf computes bootstrap IRF paths and confidence intervals", {
   expect_equal(dim(out$ci$CIRF$upper), c(3, 1))
 })
 
+test_that("compute_irf computes bootstrap confidence intervals for K greater than 2", {
+  K <- 3
+  N <- 30
+  data <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+  colnames(data) <- c("MSCI", "Gold", "Oil")
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = diag(0.1, K),
+    A = diag(0.1, K),
+    G = diag(0.8, K),
+    asymmetric = FALSE
+  )
+
+  bekk_boot <- list(
+    C0 = array(rep(diag(0.1, K), 3), dim = c(K, K, 3)),
+    A = array(c(
+      diag(0.08, K),
+      diag(0.10, K),
+      diag(0.12, K)
+    ), dim = c(K, K, 3)),
+    G = array(rep(diag(0.8, K), 3), dim = c(K, K, 3)),
+    B = NULL,
+    converged = c(TRUE, TRUE, TRUE)
+  )
+  class(bekk_boot) <- "bekkBootstrap"
+
+  out <- compute_irf(
+    bekk_model,
+    shock = c(1, 0, 0),
+    time = 10,
+    simsamp = 4,
+    n.ahead = 3,
+    seed = 42,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = TRUE,
+    calc_sirf = TRUE,
+    calc_wirf = TRUE,
+    bekk_bootstrap = bekk_boot,
+    ci_level = 0.8,
+    bootstrap_cores = 1,
+    bootstrap_progress = FALSE
+  )
+
+  expect_s3_class(out, "bekkIRF")
+  expect_equal(out$settings$series_names, c("MSCI", "Gold", "Oil"))
+  expect_equal(out$bootstrap_info$used_replications, 3)
+  expect_equal(dim(out$VIRF_mean), c(3, 6))
+  expect_equal(dim(out$CIRF_mean), c(3, 3))
+  expect_equal(dim(out$SIRF_mean), c(3, 3))
+  expect_equal(dim(out$KIRF_mean), c(3, 6))
+  expect_equal(dim(out$WIRF_mean), c(3, 3))
+  expect_equal(dim(out$bootstrap_irf$VIRF), c(3, 6, 3))
+  expect_equal(dim(out$bootstrap_irf$CIRF), c(3, 3, 3))
+  expect_equal(dim(out$bootstrap_irf$KIRF), c(3, 6, 3))
+  expect_equal(dim(out$ci$VIRF$lower), c(3, 6))
+  expect_equal(dim(out$ci$CIRF$upper), c(3, 3))
+  expect_true(all(is.finite(out$ci$VIRF$lower)))
+  expect_true(all(is.finite(out$ci$CIRF$upper)))
+})
+
 test_that("compute_irf accepts explicit bootstrap quantile probabilities", {
   K <- 2
   N <- 30
