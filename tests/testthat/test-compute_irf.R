@@ -43,6 +43,72 @@ test_that("compute_irf supports spectral and cholesky roots", {
   expect_null(out_chol$bootstrap_irf)
 })
 
+test_that("compute_irf supports BEKKs bekk, dbekk, and sbekk model outputs", {
+  skip_if_not_installed("BEKKs")
+
+  data("gold_msci_returns", package = "bekkIRF", envir = environment())
+  model_data <- as.matrix(gold_msci_returns[1:80, ])
+  model_data <- scale(model_data, center = TRUE, scale = FALSE)
+
+  for (model_type in c("bekk", "dbekk", "sbekk")) {
+    spec <- BEKKs::bekk_spec(model = list(type = model_type, asymmetric = FALSE))
+    fit <- BEKKs::bekk_fit(spec, model_data, max_iter = 1, crit = 1e-2)
+
+    out <- compute_irf(
+      fit,
+      shock = c(1, 0),
+      time = 10,
+      simsamp = 3,
+      n.ahead = 2,
+      calc_virf = TRUE,
+      calc_cirf = TRUE,
+      calc_kirf = FALSE,
+      calc_sirf = FALSE,
+      calc_wirf = FALSE
+    )
+
+    expect_s3_class(out, "bekkIRF")
+    expect_equal(out$settings$model_type, model_type)
+    expect_equal(dim(out$VIRF_mean), c(2, 3))
+    expect_equal(dim(out$CIRF_mean), c(2, 1))
+    expect_true(all(is.finite(out$VIRF_mean)))
+    expect_true(all(is.finite(out$CIRF_mean)))
+  }
+})
+
+test_that("compute_irf supports asymmetric scalar BEKKs output", {
+  skip_if_not_installed("BEKKs")
+
+  data("gold_msci_returns", package = "bekkIRF", envir = environment())
+  model_data <- as.matrix(gold_msci_returns[1:80, ])
+  model_data <- scale(model_data, center = TRUE, scale = FALSE)
+
+  spec <- BEKKs::bekk_spec(model = list(type = "sbekk", asymmetric = TRUE))
+  fit <- BEKKs::bekk_fit(spec, model_data, max_iter = 1, crit = 1e-2)
+
+  out <- compute_irf(
+    fit,
+    shock = c(1, 0),
+    time = 10,
+    simsamp = 3,
+    n.ahead = 2,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = TRUE,
+    calc_sirf = TRUE,
+    calc_wirf = TRUE
+  )
+
+  expect_s3_class(out, "bekkIRF")
+  expect_true(out$settings$asymmetric)
+  expect_equal(out$settings$model_type, "sbekk")
+  expect_equal(dim(out$VIRF_mean), c(2, 3))
+  expect_equal(dim(out$KIRF_mean), c(2, 3))
+  expect_equal(dim(out$SIRF_mean), c(2, 2))
+  expect_equal(dim(out$WIRF_mean), c(2, 2))
+  expect_true(all(is.finite(out$VIRF_mean)))
+})
+
 test_that("compute_irf seed is reproducible", {
   K <- 2
   N <- 30

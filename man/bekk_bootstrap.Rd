@@ -22,7 +22,8 @@ bekk_bootstrap(
 }
 \arguments{
 \item{bekk_model}{A fitted BEKK model object with entries \code{H_t}, \code{data},
-\code{C0}, \code{A}, \code{G}, and optionally \code{B}, \code{asymmetric}, \code{signs}, and \code{spec}.}
+\code{C0}, and either matrix parameters \code{A}, \code{G}, optionally \code{B}, or
+scalar-BEKK parameters \code{a}, \code{g}, optionally \code{b}.}
 
 \item{bekk_spec_model}{BEKK specification used for re-estimation. If \code{NULL},
 \code{bekk_model$spec} is used.}

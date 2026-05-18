@@ -16,7 +16,8 @@ compute_theoretical_virf(
 }
 \arguments{
 \item{bekk_model}{A fitted symmetric BEKK model object with entries \code{H_t},
-\code{data}, \code{A}, and \code{G}.}
+\code{data}, and either matrix parameters \code{A}, \code{G}, or scalar-BEKK parameters
+\code{a}, \code{g}.}
 
 \item{root_type}{Matrix root used to map standardized shocks into returns.
 Use \code{"spectral"}/\code{"spec"} or \code{"cholesky"}/\code{"chol"}.}

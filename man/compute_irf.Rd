@@ -27,7 +27,8 @@ compute_irf(
 }
 \arguments{
 \item{bekk_model}{A fitted BEKK model object with entries \code{H_t}, \code{data},
-\code{C0}, \code{A}, \code{G}, and optionally \code{B}, \code{asymmetric}, and \code{signs}.}
+\code{C0}, and either matrix parameters \code{A}, \code{G}, optionally \code{B}, or
+scalar-BEKK parameters \code{a}, \code{g}, optionally \code{b}.}
 
 \item{root_type}{Matrix root used to map standardized innovations into
 shocks. Use \code{"spectral"}/\code{"spec"} or \code{"cholesky"}/\code{"chol"}.}

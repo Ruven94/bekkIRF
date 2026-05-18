@@ -5,7 +5,8 @@
 #' each simulated path, and returns bootstrap parameter arrays.
 #'
 #' @param bekk_model A fitted BEKK model object with entries `H_t`, `data`,
-#'   `C0`, `A`, `G`, and optionally `B`, `asymmetric`, `signs`, and `spec`.
+#'   `C0`, and either matrix parameters `A`, `G`, optionally `B`, or
+#'   scalar-BEKK parameters `a`, `g`, optionally `b`.
 #' @param bekk_spec_model BEKK specification used for re-estimation. If `NULL`,
 #'   `bekk_model$spec` is used.
 #' @param data Numeric return matrix. If `NULL`, `bekk_model$data` is used.
@@ -56,7 +57,7 @@ bekk_bootstrap <- function(bekk_model,
     chol = "chol"
   )
 
-  required_fields <- c("H_t", "C0", "A", "G")
+  required_fields <- c("H_t", "C0")
   missing_fields <- setdiff(required_fields, names(bekk_model))
   if (length(missing_fields) > 0) {
     stop(
@@ -92,12 +93,16 @@ bekk_bootstrap <- function(bekk_model,
   }
 
   H_t <- as.matrix(bekk_model$H_t)
-  C0 <- as.matrix(bekk_model$C0)
-  A <- as.matrix(bekk_model$A)
-  G <- as.matrix(bekk_model$G)
-
   N <- nrow(data)
   K <- ncol(data)
+
+  params <- bekk_extract_parameters(bekk_model, K)
+  C0 <- params$C0
+  A <- params$A
+  G <- params$G
+  B <- params$B
+  asym <- params$asymmetric
+  signs <- params$signs
 
   if (N < 2L) {
     stop("`data` must contain at least two rows.")
@@ -105,34 +110,6 @@ bekk_bootstrap <- function(bekk_model,
 
   if (nrow(H_t) != N || ncol(H_t) != K^2) {
     stop("`bekk_model$H_t` must have dimensions `nrow(data) x ncol(data)^2`.")
-  }
-
-  if (nrow(C0) != K || ncol(C0) != K ||
-      nrow(A) != K || ncol(A) != K ||
-      nrow(G) != K || ncol(G) != K) {
-    stop("`C0`, `A`, and `G` must be square matrices compatible with `data`.")
-  }
-
-  asym <- isTRUE(bekk_model$asymmetric) || !is.null(bekk_model$B)
-  if (asym) {
-    if (is.null(bekk_model$B)) {
-      stop("`bekk_model$B` is required for asymmetric BEKK bootstrap.")
-    }
-    B <- as.matrix(bekk_model$B)
-    if (nrow(B) != K || ncol(B) != K) {
-      stop("`B` must be a square matrix compatible with `data`.")
-    }
-  } else {
-    B <- matrix(0, K, K)
-  }
-
-  signs <- bekk_model$signs
-  if (is.null(signs)) {
-    signs <- rep(-1, K)
-  }
-  signs <- as.numeric(signs)
-  if (length(signs) != K || !all(signs %in% c(-1, 1))) {
-    stop("`signs` must contain one -1 or 1 value per series.")
   }
 
   if (length(bootsamp) != 1L || is.na(bootsamp) || bootsamp <= 0) {
@@ -232,11 +209,27 @@ bekk_bootstrap <- function(bekk_model,
       ))
     }
 
+    fit_params <- tryCatch(
+      bekk_extract_parameters(fit, K),
+      error = function(e) e
+    )
+
+    if (inherits(fit_params, "error")) {
+      return(list(
+        C0 = matrix(NA_real_, K, K),
+        A = matrix(NA_real_, K, K),
+        G = matrix(NA_real_, K, K),
+        B = if (asym) matrix(NA_real_, K, K) else NULL,
+        converged = FALSE,
+        error = conditionMessage(fit_params)
+      ))
+    }
+
     list(
-      C0 = fit$C0,
-      A = fit$A,
-      G = fit$G,
-      B = if (asym) fit$B else NULL,
+      C0 = fit_params$C0,
+      A = fit_params$A,
+      G = fit_params$G,
+      B = if (asym) fit_params$B else NULL,
       converged = TRUE,
       error = NA_character_
     )
@@ -267,7 +260,8 @@ bekk_bootstrap <- function(bekk_model,
       varlist = c(
         "worker_fun", "seed", "N", "K", "xi", "xi_resample_n", "H_start", "root_type",
         "C0", "A", "G", "B", "asym", "signs", "matroot", "compute_eta",
-        "bekk_spec_model", "max_iter", "crit", "center"
+        "bekk_spec_model", "max_iter", "crit", "center",
+        "bekk_extract_parameters", "bekk_parameter_matrix", "bekk_model_type"
       ),
       envir = environment()
     )
@@ -322,7 +316,8 @@ bekk_bootstrap <- function(bekk_model,
       xi_original_n = xi_original_n,
       xi_resample_n = xi_resample_n,
       xi_removed_n = xi_original_n - xi_resample_n,
-      asymmetric = asym
+      asymmetric = asym,
+      model_type = params$model_type
     )
   )
 

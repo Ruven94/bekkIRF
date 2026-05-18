@@ -6,7 +6,8 @@
 #' obtained from the fitted model's standardized innovations.
 #'
 #' @param bekk_model A fitted symmetric BEKK model object with entries `H_t`,
-#'   `data`, `A`, and `G`.
+#'   `data`, and either matrix parameters `A`, `G`, or scalar-BEKK parameters
+#'   `a`, `g`.
 #' @param root_type Matrix root used to map standardized shocks into returns.
 #'   Use `"spectral"`/`"spec"` or `"cholesky"`/`"chol"`.
 #' @param shock_type Either `"structural"` for a user supplied standardized
@@ -45,7 +46,7 @@ compute_theoretical_virf <- function(bekk_model,
     stop("Closed-form theoretical VIRFs are implemented only for symmetric BEKK models.")
   }
 
-  required_fields <- c("H_t", "data", "A", "G")
+  required_fields <- c("H_t", "data")
   missing_fields <- setdiff(required_fields, names(bekk_model))
   if (length(missing_fields) > 0) {
     stop(
@@ -57,11 +58,10 @@ compute_theoretical_virf <- function(bekk_model,
 
   data <- as.matrix(bekk_model$data)
   H_t <- as.matrix(bekk_model$H_t)
-  A <- as.matrix(bekk_model$A)
-  G <- as.matrix(bekk_model$G)
-
   N <- nrow(data)
   K <- ncol(data)
+  A <- bekk_parameter_matrix(bekk_model, "A", "a", K)
+  G <- bekk_parameter_matrix(bekk_model, "G", "g", K)
 
   if (nrow(H_t) != N || ncol(H_t) != K^2) {
     stop("`bekk_model$H_t` must have dimensions `nrow(data) x ncol(data)^2`.")

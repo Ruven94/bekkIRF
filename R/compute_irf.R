@@ -5,7 +5,8 @@
 #' matrix and averages the resulting differences over Monte Carlo paths.
 #'
 #' @param bekk_model A fitted BEKK model object with entries `H_t`, `data`,
-#'   `C0`, `A`, `G`, and optionally `B`, `asymmetric`, and `signs`.
+#'   `C0`, and either matrix parameters `A`, `G`, optionally `B`, or
+#'   scalar-BEKK parameters `a`, `g`, optionally `b`.
 #' @param root_type Matrix root used to map standardized innovations into
 #'   shocks. Use `"spectral"`/`"spec"` or `"cholesky"`/`"chol"`.
 #' @param shock_type Either `"structural"` for a user supplied standardized
@@ -62,7 +63,7 @@ compute_irf <- function(bekk_model,
   )
   root_type_id <- switch(root_type, spec = 0L, chol = 1L)
 
-  required_fields <- c("H_t", "data", "C0", "A", "G")
+  required_fields <- c("H_t", "data", "C0")
   missing_fields <- setdiff(required_fields, names(bekk_model))
   if (length(missing_fields) > 0) {
     stop(
@@ -98,25 +99,13 @@ compute_irf <- function(bekk_model,
   psi_skew <- compute_psi_skewness(xi)
   psi_kurt <- compute_psi_kurtosis(xi)
 
-  C <- as.matrix(bekk_model$C0)
-  A <- as.matrix(bekk_model$A)
-  G <- as.matrix(bekk_model$G)
-
-  asym <- isTRUE(bekk_model$asymmetric)
-  if (asym) {
-    if (is.null(bekk_model$B)) {
-      stop("`bekk_model$B` is required for asymmetric BEKK models.")
-    }
-    B <- as.matrix(bekk_model$B)
-  } else {
-    B <- matrix(0, K, K)
-  }
-
-  signs <- bekk_model$signs
-  if (is.null(signs)) {
-    signs <- rep(-1, K)
-  }
-  signs <- as.numeric(signs)
+  params <- bekk_extract_parameters(bekk_model, K)
+  C <- params$C0
+  A <- params$A
+  G <- params$G
+  B <- params$B
+  asym <- params$asymmetric
+  signs <- params$signs
 
   H_0 <- matrix(H_t[time, ], nrow = K, ncol = K)
 
@@ -159,6 +148,7 @@ compute_irf <- function(bekk_model,
     n.ahead = as.integer(n.ahead),
     seed = as.integer(seed),
     asymmetric = asym,
+    model_type = params$model_type,
     series_names = if (is.null(colnames(data))) paste0("Series ", seq_len(K)) else colnames(data),
     calc_irfs = list(
       VIRF = isTRUE(calc_virf),
