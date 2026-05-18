@@ -475,16 +475,20 @@ test_that("bekkIRF print, summary, and plot methods work", {
 
   printed <- capture.output(print(out))
   expect_true(any(grepl("bekkIRF object", printed, fixed = TRUE)))
+  expect_true(any(grepl("root_type = spec, shock_type = structural", printed, fixed = TRUE)))
+  expect_true(any(grepl("shock = c(1, 0)", printed, fixed = TRUE)))
   expect_true(any(grepl("Bootstrap: none", printed, fixed = TRUE)))
 
   out_summary <- summary(out)
   expect_s3_class(out_summary, "summary_bekkIRF")
   expect_equal(out_summary$irf$type, c("VIRF", "CIRF"))
   expect_equal(out_summary$settings$n.ahead, 2L)
+  expect_equal(out_summary$settings$shock, c(msci.Ret = 1, gold.Ret = 0))
   expect_true(isFALSE(out_summary$settings$bootstrap))
 
   summary_printed <- capture.output(print(out_summary))
   expect_true(any(grepl("Summary of bekkIRF object", summary_printed, fixed = TRUE)))
+  expect_true(any(grepl("shock = c(1, 0)", summary_printed, fixed = TRUE)))
 
   p_virf <- plot(out, type = "VIRF")
   p_all <- plot(out)

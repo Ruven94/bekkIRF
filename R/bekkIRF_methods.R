@@ -261,9 +261,51 @@ bekk_irf_plot_data <- function(x, types, ci = TRUE, components = NULL) {
   plot_data
 }
 
+bekk_irf_setting_value <- function(settings, names, default = "not stored") {
+  for (name in names) {
+    value <- settings[[name]]
+    if (!is.null(value) && length(value) > 0L) {
+      return(value)
+    }
+  }
+  default
+}
+
+bekk_irf_format_scalar <- function(value, big_mark = FALSE) {
+  if (is.null(value) || length(value) == 0L) {
+    return("not stored")
+  }
+  if (is.numeric(value) || is.integer(value)) {
+    value <- value[1L]
+    if (is.na(value)) {
+      return("not stored")
+    }
+    if (big_mark) {
+      return(format(value, big.mark = ",", scientific = FALSE, trim = TRUE))
+    }
+    return(as.character(value))
+  }
+  value <- as.character(value[1L])
+  if (is.na(value) || !nzchar(value)) {
+    return("not stored")
+  }
+  value
+}
+
+bekk_irf_format_vector <- function(value, digits = 6L) {
+  if (is.null(value) || length(value) == 0L) {
+    return(NULL)
+  }
+  value <- as.numeric(value)
+  if (anyNA(value)) {
+    return(NULL)
+  }
+  paste0("c(", paste(signif(value, digits), collapse = ", "), ")")
+}
+
 bekk_irf_settings_line <- function(x) {
   settings <- x$settings
-  if (is.null(settings)) {
+  if (is.null(settings) || length(settings) == 0L) {
     return(NULL)
   }
 
@@ -273,16 +315,30 @@ bekk_irf_settings_line <- function(x) {
   }
 
   line <- paste0(
-    "root = ", settings$root_type,
-    ", shock = ", settings$shock_type,
-    ", time = ", settings$time,
-    ", simsamp = ", format(settings$simsamp, big.mark = ","),
-    ", n.ahead = ", settings$n.ahead
+    "root_type = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("root_type", "root"))),
+    ", shock_type = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("shock_type"))),
+    ", time = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("time"))),
+    ", simsamp = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("simsamp")), big_mark = TRUE),
+    ", n.ahead = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("n.ahead", "n_ahead")))
   )
   if (!is.null(asym_text)) {
     line <- paste0(line, ", asymmetric = ", asym_text)
   }
   line
+}
+
+bekk_irf_shock_line <- function(x) {
+  settings <- x$settings
+  if (is.null(settings) || length(settings) == 0L) {
+    return(NULL)
+  }
+
+  shock <- bekk_irf_format_vector(bekk_irf_setting_value(settings, c("shock", "shock_vector"), default = NULL))
+  if (is.null(shock)) {
+    return(NULL)
+  }
+
+  paste0("shock = ", shock)
 }
 
 #' Print a BEKK IRF object
@@ -297,6 +353,10 @@ print.bekkIRF <- function(x, ...) {
   settings_line <- bekk_irf_settings_line(x)
   if (!is.null(settings_line)) {
     cat(settings_line, "\n", sep = "")
+  }
+  shock_line <- bekk_irf_shock_line(x)
+  if (!is.null(shock_line)) {
+    cat(shock_line, "\n", sep = "")
   }
 
   if (length(types) == 0L) {
@@ -378,6 +438,10 @@ print.summary_bekkIRF <- function(x, ...) {
 
   if (!is.null(x$settings)) {
     cat(bekk_irf_settings_line(x), "\n", sep = "")
+    shock_line <- bekk_irf_shock_line(x)
+    if (!is.null(shock_line)) {
+      cat(shock_line, "\n", sep = "")
+    }
   }
 
   if (!is.null(x$irf) && nrow(x$irf) > 0L) {

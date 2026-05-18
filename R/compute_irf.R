@@ -116,6 +116,10 @@ compute_irf <- function(bekk_model,
   }
 
   shock <- as.numeric(shock)
+  if (length(shock) != K) {
+    stop("`shock` must have length equal to `ncol(bekk_model$data)`.")
+  }
+  names(shock) <- if (is.null(colnames(data))) paste0("Series ", seq_len(K)) else colnames(data)
 
   out <- compute_irf_core_cpp(
     H_0 = H_0,
@@ -147,6 +151,7 @@ compute_irf <- function(bekk_model,
     simsamp = as.integer(simsamp),
     n.ahead = as.integer(n.ahead),
     seed = as.integer(seed),
+    shock = shock,
     asymmetric = asym,
     model_type = params$model_type,
     series_names = if (is.null(colnames(data))) paste0("Series ", seq_len(K)) else colnames(data),
