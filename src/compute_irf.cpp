@@ -26,8 +26,7 @@ inline arma::mat matroot_cpp(const arma::mat& H, const int root_type, const doub
       Rcpp::stop("`H` is not positive semi-definite.");
     }
 
-    arma::mat L = arma::diagmat(arma::sqrt(eigval));
-    return eigvec * L * eigvec.t();
+    return eigvec * arma::diagmat(arma::sqrt(eigval)) * eigvec.t();
   }
 
   if (root_type == 1) {
@@ -92,13 +91,13 @@ inline arma::vec vech_cpp(const arma::mat& M) {
 // -----------------------------------------------------------------------------
 inline arma::mat update_bekk_cpp(const arma::mat& H_prev,
                                  const arma::vec& e,
-                                 const arma::mat& C,
+                                 const arma::mat& CC,
                                  const arma::mat& A,
                                  const arma::mat& G,
                                  const arma::mat& B,
                                  const arma::vec& signs,
                                  const bool asym) {
-  arma::mat H_new = C * C.t() +
+  arma::mat H_new = CC +
     A.t() * e * e.t() * A +
     G.t() * H_prev * G;
 
@@ -137,12 +136,10 @@ inline arma::rowvec wirf_row_cpp(const arma::mat& H1, const arma::mat& H0) {
   int K = H1.n_rows;
   arma::vec one = arma::ones<arma::vec>(K);
 
-  arma::mat invH1 = arma::inv_sympd(H1);
-  arma::vec w1 = invH1 * one;
+  arma::vec w1 = arma::solve(H1, one, arma::solve_opts::likely_sympd);
   w1 /= arma::as_scalar(one.t() * w1);
 
-  arma::mat invH0 = arma::inv_sympd(H0);
-  arma::vec w0 = invH0 * one;
+  arma::vec w0 = arma::solve(H0, one, arma::solve_opts::likely_sympd);
   w0 /= arma::as_scalar(one.t() * w0);
 
   return (w1 - w0).t();
@@ -220,18 +217,19 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
     Rcpp::stop("`psi_skew` must have dimensions `K^2 x K`.");
   }
 
-  // Result containers
-  arma::cube VIRF_all;
-  arma::cube CIRF_all;
-  arma::cube KIRF_all;
-  arma::cube SIRF_all;
-  arma::cube WIRF_all;
+  arma::mat CC = C * C.t();
 
-  if (calc_virf) VIRF_all = arma::cube(n_ahead, n_sel, simsamp, fill::zeros);
-  if (calc_cirf) CIRF_all = arma::cube(n_ahead, n_cirf, simsamp, fill::zeros);
-  if (calc_kirf) KIRF_all = arma::cube(n_ahead, n_sel, simsamp, fill::zeros);
-  if (calc_sirf) SIRF_all = arma::cube(n_ahead, K, simsamp, fill::zeros);
-  if (calc_wirf) WIRF_all = arma::cube(n_ahead, K, simsamp, fill::zeros);
+  arma::mat VIRF_sum;
+  arma::mat CIRF_sum;
+  arma::mat KIRF_sum;
+  arma::mat SIRF_sum;
+  arma::mat WIRF_sum;
+
+  if (calc_virf) VIRF_sum = arma::mat(n_ahead, n_sel, fill::zeros);
+  if (calc_cirf) CIRF_sum = arma::mat(n_ahead, n_cirf, fill::zeros);
+  if (calc_kirf) KIRF_sum = arma::mat(n_ahead, n_sel, fill::zeros);
+  if (calc_sirf) SIRF_sum = arma::mat(n_ahead, K, fill::zeros);
+  if (calc_wirf) WIRF_sum = arma::mat(n_ahead, K, fill::zeros);
 
   std::mt19937 rng(static_cast<std::mt19937::result_type>(seed));
   std::uniform_int_distribution<int> draw_idx(0, N - 1);
@@ -263,13 +261,13 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
     arma::vec x0 = xi.row(idx(0)).t();
     arma::mat Q0 = matroot_cpp(H_base, root_type);
     arma::vec e_base = Q0 * x0;
-    arma::mat H_base_next = update_bekk_cpp(H_base, e_base, C, A, G, B, signs, asym);
+    arma::mat H_base_next = update_bekk_cpp(H_base, e_base, CC, A, G, B, signs, asym);
 
     // -----------------------------------------------------------------------
     // Step 1: shock path
     // -----------------------------------------------------------------------
     arma::vec e_shock = Q0 * shock;
-    arma::mat H_shock_next = update_bekk_cpp(H_shock, e_shock, C, A, G, B, signs, asym);
+    arma::mat H_shock_next = update_bekk_cpp(H_shock, e_shock, CC, A, G, B, signs, asym);
 
     // -----------------------------------------------------------------------
     // IRFs at horizon 1
@@ -347,11 +345,11 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
 
       arma::mat Q_base = matroot_cpp(H_base, root_type);
       arma::vec e_base_i = Q_base * x_future;
-      H_base = update_bekk_cpp(H_base, e_base_i, C, A, G, B, signs, asym);
+      H_base = update_bekk_cpp(H_base, e_base_i, CC, A, G, B, signs, asym);
 
       arma::mat Q_shock = matroot_cpp(H_shock, root_type);
       arma::vec e_shock_i = Q_shock * x_future;
-      H_shock = update_bekk_cpp(H_shock, e_shock_i, C, A, G, B, signs, asym);
+      H_shock = update_bekk_cpp(H_shock, e_shock_i, CC, A, G, B, signs, asym);
 
       diffH = H_shock - H_base;
 
@@ -416,47 +414,41 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
       }
     }
 
-    if (calc_virf) VIRF_all.slice(s) = VIRF_j;
-    if (calc_cirf) CIRF_all.slice(s) = CIRF_j;
-    if (calc_kirf) KIRF_all.slice(s) = KIRF_j;
-    if (calc_sirf) SIRF_all.slice(s) = SIRF_j;
-    if (calc_wirf) WIRF_all.slice(s) = WIRF_j;
+    if (calc_virf) VIRF_sum += VIRF_j;
+    if (calc_cirf) CIRF_sum += CIRF_j;
+    if (calc_kirf) KIRF_sum += KIRF_j;
+    if (calc_sirf) SIRF_sum += SIRF_j;
+    if (calc_wirf) WIRF_sum += WIRF_j;
   }
 
-  // Means over simulation runs
   Rcpp::List out;
 
   if (calc_virf) {
-    arma::mat VIRF_mean = arma::mean(VIRF_all, 2);
-    out["VIRF_mean"] = VIRF_mean;
+    out["VIRF_mean"] = VIRF_sum / simsamp;
   } else {
     out["VIRF_mean"] = R_NilValue;
   }
 
   if (calc_cirf) {
-    arma::mat CIRF_mean = arma::mean(CIRF_all, 2);
-    out["CIRF_mean"] = CIRF_mean;
+    out["CIRF_mean"] = CIRF_sum / simsamp;
   } else {
     out["CIRF_mean"] = R_NilValue;
   }
 
   if (calc_kirf) {
-    arma::mat KIRF_mean = arma::mean(KIRF_all, 2);
-    out["KIRF_mean"] = KIRF_mean;
+    out["KIRF_mean"] = KIRF_sum / simsamp;
   } else {
     out["KIRF_mean"] = R_NilValue;
   }
 
   if (calc_sirf) {
-    arma::mat SIRF_mean = arma::mean(SIRF_all, 2);
-    out["SIRF_mean"] = SIRF_mean;
+    out["SIRF_mean"] = SIRF_sum / simsamp;
   } else {
     out["SIRF_mean"] = R_NilValue;
   }
 
   if (calc_wirf) {
-    arma::mat WIRF_mean = arma::mean(WIRF_all, 2);
-    out["WIRF_mean"] = WIRF_mean;
+    out["WIRF_mean"] = WIRF_sum / simsamp;
   } else {
     out["WIRF_mean"] = R_NilValue;
   }
