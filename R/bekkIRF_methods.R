@@ -267,13 +267,22 @@ bekk_irf_settings_line <- function(x) {
     return(NULL)
   }
 
-  paste0(
+  asym_text <- NULL
+  if (!is.null(settings$asymmetric)) {
+    asym_text <- if (isTRUE(settings$asymmetric)) "yes" else "no"
+  }
+
+  line <- paste0(
     "root = ", settings$root_type,
     ", shock = ", settings$shock_type,
     ", time = ", settings$time,
     ", simsamp = ", format(settings$simsamp, big.mark = ","),
     ", n.ahead = ", settings$n.ahead
   )
+  if (!is.null(asym_text)) {
+    line <- paste0(line, ", asymmetric = ", asym_text)
+  }
+  line
 }
 
 #' Print a BEKK IRF object
@@ -293,10 +302,7 @@ print.bekkIRF <- function(x, ...) {
   if (length(types) == 0L) {
     cat("IRFs: none\n")
   } else {
-    dims <- vapply(types, function(type) {
-      paste(dim(x[[paste0(type, "_mean")]]), collapse = " x ")
-    }, character(1L))
-    cat("IRFs: ", paste(paste0(types, " (", dims, ")"), collapse = ", "), "\n", sep = "")
+    cat("IRFs: ", paste(types, collapse = ", "), "\n", sep = "")
   }
 
   if (!is.null(x$bootstrap_info)) {
@@ -323,6 +329,8 @@ print.bekkIRF <- function(x, ...) {
     cat("Bootstrap: none\n")
   }
 
+  cat("Use summary() for details and plot() for IRF plots.\n")
+
   invisible(x)
 }
 
@@ -346,7 +354,6 @@ summary.bekkIRF <- function(object, ...) {
         max = max(mat, na.rm = TRUE),
         max_abs = max(abs(mat), na.rm = TRUE),
         final_mean_abs = mean(abs(mat[nrow(mat), ]), na.rm = TRUE),
-        has_ci = !is.null(object$ci[[type]]),
         stringsAsFactors = FALSE
       )
     })
@@ -370,15 +377,7 @@ print.summary_bekkIRF <- function(x, ...) {
   cat("Summary of bekkIRF object\n")
 
   if (!is.null(x$settings)) {
-    cat(
-      "root = ", x$settings$root_type,
-      ", shock = ", x$settings$shock_type,
-      ", time = ", x$settings$time,
-      ", simsamp = ", format(x$settings$simsamp, big.mark = ","),
-      ", n.ahead = ", x$settings$n.ahead,
-      "\n",
-      sep = ""
-    )
+    cat(bekk_irf_settings_line(x), "\n", sep = "")
   }
 
   if (!is.null(x$irf) && nrow(x$irf) > 0L) {
@@ -400,6 +399,8 @@ print.summary_bekkIRF <- function(x, ...) {
       cat(", cores = ", x$bootstrap$cores, sep = "")
     }
     cat("\n")
+  } else {
+    cat("Bootstrap: none\n")
   }
 
   invisible(x)
