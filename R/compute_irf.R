@@ -18,7 +18,10 @@
 #' @param n.ahead Number of horizons.
 #' @param seed Integer random seed.
 #' @param calc_virf,calc_cirf,calc_kirf,calc_sirf,calc_wirf Logical flags for
-#'   the requested IRF types.
+#'   the requested IRF types: variance impulse response functions (VIRFs),
+#'   correlation impulse response functions (CIRFs), kurtosis impulse response
+#'   functions (KIRFs), skewness impulse response functions (SIRFs), and
+#'   weights impulse response functions (WIRFs) for optimal portfolio weights.
 #' @param bekk_bootstrap Optional `"bekkBootstrap"` object. If supplied,
 #'   `compute_irf()` recomputes the selected IRFs for each converged bootstrap
 #'   parameter draw and returns pointwise bootstrap confidence intervals.
@@ -31,7 +34,38 @@
 #' @param bootstrap_chunk_size Number of bootstrap IRF paths submitted per
 #'   parallel batch. The default uses `bootstrap_cores`.
 #'
-#' @returns A list with mean IRF matrices for the selected IRF types.
+#' @returns An object of class `"bekkIRF"`, i.e. a list containing selected
+#'   mean IRF matrices such as `VIRF_mean`, `CIRF_mean`, `SIRF_mean`,
+#'   `KIRF_mean`, and `WIRF_mean`. The object also contains `settings` with
+#'   the simulation choices and the actually used shock vector. If
+#'   `bekk_bootstrap` is supplied, the object additionally contains
+#'   `bootstrap_irf`, pointwise confidence intervals in `ci`, and
+#'   `bootstrap_info`.
+#'
+#' @examples
+#' K <- 2
+#' N <- 30
+#' x <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+#' colnames(x) <- c("series1", "series2")
+#' H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+#'
+#' fit <- list(
+#'   H_t = H_t,
+#'   data = x,
+#'   C0 = diag(0.1, K),
+#'   A = diag(0.1, K),
+#'   G = diag(0.8, K),
+#'   asymmetric = FALSE
+#' )
+#'
+#' irf <- compute_irf(
+#'   fit,
+#'   shock = c(1, 0),
+#'   time = 10,
+#'   simsamp = 10,
+#'   n.ahead = 5
+#' )
+#' print(irf)
 #' @export
 compute_irf <- function(bekk_model,
                         root_type = c("spectral", "cholesky", "spec", "chol"),

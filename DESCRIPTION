@@ -4,13 +4,15 @@ Version: 0.0.0.9000
 Authors@R: 
     c(
       person("Ruven", "Zapf", email = "Ruven.Zapf@uni-goettingen.de", role = c("aut", "cre")),
-      person("Helmut", "Herwartz", role = "aut")
+      person("Helmut", "Herwartz", email = "hherwartz@uni-goettingen.de", role = "aut")
     )
 Author: Ruven Zapf [aut, cre],
     Helmut Herwartz [aut]
 Maintainer: Ruven Zapf <Ruven.Zapf@uni-goettingen.de>
-Description: Provides a simulation-based approach to compute impulse response functions for asymmetric multivariate GARCH models.
+Description: Computes simulation-based impulse response functions for fitted BEKK, diagonal BEKK, and scalar BEKK models, including asymmetric volatility dynamics and bootstrap confidence intervals.
 License: MIT + file LICENSE
+URL: https://github.com/Ruven94/bekkIRF
+BugReports: https://github.com/Ruven94/bekkIRF/issues
 Encoding: UTF-8
 LazyData: true
 Depends:

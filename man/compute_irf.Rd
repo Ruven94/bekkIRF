@@ -48,7 +48,10 @@ shock or \code{"empirical"} to use \code{xi[time, ]}.}
 \item{seed}{Integer random seed.}
 
 \item{calc_virf, calc_cirf, calc_kirf, calc_sirf, calc_wirf}{Logical flags for
-the requested IRF types.}
+the requested IRF types: variance impulse response functions (VIRFs),
+correlation impulse response functions (CIRFs), kurtosis impulse response
+functions (KIRFs), skewness impulse response functions (SIRFs), and
+weights impulse response functions (WIRFs) for optimal portfolio weights.}
 
 \item{bekk_bootstrap}{Optional \code{"bekkBootstrap"} object. If supplied,
 \code{compute_irf()} recomputes the selected IRFs for each converged bootstrap
@@ -67,9 +70,40 @@ bootstrap IRF paths.}
 parallel batch. The default uses \code{bootstrap_cores}.}
 }
 \value{
-A list with mean IRF matrices for the selected IRF types.
+An object of class \code{"bekkIRF"}, i.e. a list containing selected
+mean IRF matrices such as \code{VIRF_mean}, \code{CIRF_mean}, \code{SIRF_mean},
+\code{KIRF_mean}, and \code{WIRF_mean}. The object also contains \code{settings} with
+the simulation choices and the actually used shock vector. If
+\code{bekk_bootstrap} is supplied, the object additionally contains
+\code{bootstrap_irf}, pointwise confidence intervals in \code{ci}, and
+\code{bootstrap_info}.
 }
 \description{
 Simulates paired non-shock and shock BEKK paths from one initial covariance
 matrix and averages the resulting differences over Monte Carlo paths.
+}
+\examples{
+K <- 2
+N <- 30
+x <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+colnames(x) <- c("series1", "series2")
+H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+fit <- list(
+  H_t = H_t,
+  data = x,
+  C0 = diag(0.1, K),
+  A = diag(0.1, K),
+  G = diag(0.8, K),
+  asymmetric = FALSE
+)
+
+irf <- compute_irf(
+  fit,
+  shock = c(1, 0),
+  time = 10,
+  simsamp = 10,
+  n.ahead = 5
+)
+print(irf)
 }

@@ -58,11 +58,33 @@ batch. The default uses \code{cores}.}
 }
 \value{
 An object of class \code{"bekkBootstrap"} containing bootstrap parameter
-arrays \code{C0}, \code{A}, \code{G}, optionally \code{B}, and diagnostic vectors \code{converged}
-and \code{error}.
+arrays \code{C0}, \code{A}, \code{G}, optionally \code{B}, diagnostic vectors \code{converged}
+and \code{error}, and a \code{settings} list with bootstrap choices and
+standardized-innovation filtering diagnostics.
 }
 \description{
 Simulates bootstrap return paths from a fitted BEKK model by resampling the
 fitted standardized innovations, refits the supplied BEKK specification to
 each simulated path, and returns bootstrap parameter arrays.
+}
+\examples{
+\dontrun{
+data(gold_msci_returns)
+spec <- BEKKs::bekk_spec(model = list(type = "bekk", asymmetric = FALSE))
+fit <- BEKKs::bekk_fit(spec, gold_msci_returns, max_iter = 50)
+
+boot <- bekk_bootstrap(
+  fit,
+  bekk_spec_model = spec,
+  bootsamp = 99,
+  cores = 2
+)
+
+irf <- compute_irf(
+  fit,
+  shock_type = "empirical",
+  time = 444,
+  bekk_bootstrap = boot
+)
+}
 }

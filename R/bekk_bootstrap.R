@@ -28,8 +28,30 @@
 #'   batch. The default uses `cores`.
 #'
 #' @returns An object of class `"bekkBootstrap"` containing bootstrap parameter
-#'   arrays `C0`, `A`, `G`, optionally `B`, and diagnostic vectors `converged`
-#'   and `error`.
+#'   arrays `C0`, `A`, `G`, optionally `B`, diagnostic vectors `converged`
+#'   and `error`, and a `settings` list with bootstrap choices and
+#'   standardized-innovation filtering diagnostics.
+#'
+#' @examples
+#' \dontrun{
+#' data(gold_msci_returns)
+#' spec <- BEKKs::bekk_spec(model = list(type = "bekk", asymmetric = FALSE))
+#' fit <- BEKKs::bekk_fit(spec, gold_msci_returns, max_iter = 50)
+#'
+#' boot <- bekk_bootstrap(
+#'   fit,
+#'   bekk_spec_model = spec,
+#'   bootsamp = 99,
+#'   cores = 2
+#' )
+#'
+#' irf <- compute_irf(
+#'   fit,
+#'   shock_type = "empirical",
+#'   time = 444,
+#'   bekk_bootstrap = boot
+#' )
+#' }
 #' @export
 bekk_bootstrap <- function(bekk_model,
                            bekk_spec_model = NULL,

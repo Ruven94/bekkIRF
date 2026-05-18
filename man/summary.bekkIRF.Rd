@@ -14,3 +14,9 @@
 \description{
 Summarise a BEKK IRF object
 }
+\details{
+The summary table reports simple diagnostics for each selected IRF type:
+\code{max_abs} is the largest absolute response across all horizons and
+components, while \code{final_mean_abs} is the mean absolute response at the last
+simulated horizon across components.
+}

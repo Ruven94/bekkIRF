@@ -398,6 +398,12 @@ print.bekkIRF <- function(x, ...) {
 #'
 #' @param object Object of class `"bekkIRF"`.
 #' @param ... Additional arguments ignored.
+#'
+#' @details
+#' The summary table reports simple diagnostics for each selected IRF type:
+#' `max_abs` is the largest absolute response across all horizons and
+#' components, while `final_mean_abs` is the mean absolute response at the last
+#' simulated horizon across components.
 #' @export
 summary.bekkIRF <- function(object, ...) {
   types <- bekk_irf_available_types(object)
@@ -472,14 +478,21 @@ print.summary_bekkIRF <- function(x, ...) {
 
 #' Plot BEKK impulse response functions
 #'
+#' Plots one or more impulse response functions stored in a `"bekkIRF"` object.
+#' Bootstrap confidence intervals are shown automatically when available and
+#' `ci = TRUE`.
+#'
 #' @param x Object of class `"bekkIRF"`.
 #' @param y Ignored.
 #' @param type IRF type to plot. Use `"all"` for all available IRFs, or one of
-#'   `"VIRF"`, `"CIRF"`, `"SIRF"`, `"KIRF"`, `"WIRF"`. Matching is
+#'   `"VIRF"` (variance impulse response function), `"CIRF"` (correlation
+#'   impulse response function), `"SIRF"` (skewness impulse response function),
+#'   `"KIRF"` (kurtosis impulse response function), or `"WIRF"` (weights
+#'   impulse response function for optimal portfolio weights). Matching is
 #'   case-insensitive.
 #' @param ci Logical. If `TRUE`, plot bootstrap confidence intervals when
 #'   available.
-#' @param components Optional component selector. Use a single integer for a
+#' @param components Optional component selector. Use a single integer for an
 #'   own-series component, e.g. `1`, or a length-two pair such as `c(1, 2)`.
 #' @param title,subtitle Plot title and subtitle. If `title = NULL`, an
 #'   informative default title is used. If `subtitle = NULL`, no subtitle is
@@ -499,6 +512,25 @@ print.summary_bekkIRF <- function(x, ...) {
 #' @param ... Additional arguments ignored.
 #'
 #' @returns A `ggplot` object.
+#'
+#' @examples
+#' K <- 2
+#' N <- 30
+#' x <- matrix(seq_len(N * K) / 100, nrow = N, ncol = K)
+#' colnames(x) <- c("series1", "series2")
+#' H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+#'
+#' fit <- list(
+#'   H_t = H_t,
+#'   data = x,
+#'   C0 = diag(0.1, K),
+#'   A = diag(0.1, K),
+#'   G = diag(0.8, K),
+#'   asymmetric = FALSE
+#' )
+#'
+#' irf <- compute_irf(fit, shock = c(1, 0), time = 10, simsamp = 10, n.ahead = 5)
+#' plot(irf, type = "VIRF")
 #' @export
 plot.bekkIRF <- function(x,
                          y = NULL,

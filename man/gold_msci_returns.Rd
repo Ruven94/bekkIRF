@@ -3,22 +3,26 @@
 \docType{data}
 \name{gold_msci_returns}
 \alias{gold_msci_returns}
-\title{MSCI World and gold returns}
+\title{MSCI World Developed Markets and gold returns}
 \format{
-A numeric matrix with 4,920 rows and 2 columns:
+A numeric matrix with 4,920 dated rows and 2 columns:
 \describe{
-\item{msci.Ret}{MSCI World returns.}
+\item{msci.Ret}{MSCI World Developed Markets returns.}
 \item{gold.Ret}{Gold returns.}
 }
+The matrix has daily trading dates as \code{rownames(gold_msci_returns)} and as
+\code{attr(gold_msci_returns, "dates")}.
 }
 \source{
-User-provided processed data.
+Refinitiv Workspace data processed by the package author.
 }
 \usage{
 gold_msci_returns
 }
 \description{
-A two-column matrix of centered returns used for package examples,
-validation scripts, and the planned application study.
+A two-column matrix of centered daily log returns used for package examples,
+validation scripts, and the package application study. The matrix keeps the
+return dates as row names and in the \code{"dates"} attribute. The return sample
+runs from 2007-01-03 to 2025-11-28.
 }
 \keyword{datasets}
