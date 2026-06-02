@@ -40,7 +40,7 @@ dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
 # Increase these for the paper run, e.g. simsamp = 100000 and bootsamp = 1000.
 use_cache <- FALSE
 root_type <- "spectral"
-shock_type <- "empirical"
+shock_type <- "historical"
 shock_time <- 444L
 n.ahead <- 100
 simsamp <- 100000
@@ -310,7 +310,7 @@ plot_asym_all <- plot(
   type = "all",
   ci = FALSE,
   title = "Asymmetric BEKK impulse response functions",
-  subtitle = paste0("Empirical shock at t = ", shock_time),
+  subtitle = paste0("Historical shock at t = ", shock_time),
   line_color = "black",
   zero_line = TRUE
 )
@@ -354,7 +354,7 @@ plot_sym_compare <- ggplot2::ggplot(
   ggplot2::scale_color_manual(values = c("Simulation-based" = "black", "Theoretical" = "#0072B2")) +
   ggplot2::labs(
     title = "Symmetric BEKK VIRF: theoretical vs simulation-based",
-    subtitle = paste0("Empirical shock at t = ", shock_time, ", simsamp = ", simsamp),
+    subtitle = paste0("Historical shock at t = ", shock_time, ", simsamp = ", simsamp),
     x = "Horizon",
     y = "VIRF",
     color = NULL,

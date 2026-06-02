@@ -2,7 +2,7 @@
 #'
 #' Computes the closed-form volatility impulse response function for a
 #' symmetric BEKK model as in Hafner and Herwartz (2006). The function supports
-#' structural standardized shocks supplied by the user and empirical shocks
+#' user-specified standardized shocks and historical shocks
 #' obtained from the fitted model's standardized innovations.
 #'
 #' @param bekk_model A fitted symmetric BEKK model object with entries `H_t`,
@@ -10,11 +10,11 @@
 #'   `a`, `g`.
 #' @param root_type Matrix root used to map standardized shocks into returns.
 #'   Use `"spectral"`/`"spec"` or `"cholesky"`/`"chol"`.
-#' @param shock_type Either `"structural"` for a user supplied standardized
-#'   shock or `"empirical"` to use `xi[time, ]`.
+#' @param shock_type Either `"user_defined"` for a user supplied standardized
+#'   shock or `"historical"` to use `xi[time, ]`.
 #' @param shock Numeric standardized shock vector. Required for
-#'   `shock_type = "structural"`.
-#' @param time Initial time index used for `H_t` and empirical shocks.
+#'   `shock_type = "user_defined"`.
+#' @param time Initial time index used for `H_t` and historical shocks.
 #' @param n.ahead Number of horizons.
 #' @param format Output format. `"vech"` returns the lower triangular part of
 #'   each VIRF matrix, while `"array"` returns the full `K x K x n.ahead` array.
@@ -25,7 +25,7 @@
 #' @keywords internal
 compute_theoretical_virf <- function(bekk_model,
                                      root_type = c("spectral", "cholesky", "spec", "chol"),
-                                     shock_type = c("structural", "empirical"),
+                                     shock_type = c("user_defined", "historical"),
                                      shock = NULL,
                                      time = NULL,
                                      n.ahead = 100,
@@ -85,11 +85,11 @@ compute_theoretical_virf <- function(bekk_model,
   }
   n.ahead <- as.integer(n.ahead)
 
-  if (shock_type == "empirical") {
+  if (shock_type == "historical") {
     xi <- compute_xi(H_t, data, root_type = root_type)
     shock <- xi[time, ]
   } else if (is.null(shock)) {
-    stop("`shock` must be supplied for `shock_type = \"structural\"`.")
+    stop("`shock` must be supplied for `shock_type = \"user_defined\"`.")
   }
 
   shock <- as.numeric(shock)

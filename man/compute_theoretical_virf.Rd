@@ -7,7 +7,7 @@
 compute_theoretical_virf(
   bekk_model,
   root_type = c("spectral", "cholesky", "spec", "chol"),
-  shock_type = c("structural", "empirical"),
+  shock_type = c("user_defined", "historical"),
   shock = NULL,
   time = NULL,
   n.ahead = 100,
@@ -22,13 +22,13 @@ compute_theoretical_virf(
 \item{root_type}{Matrix root used to map standardized shocks into returns.
 Use \code{"spectral"}/\code{"spec"} or \code{"cholesky"}/\code{"chol"}.}
 
-\item{shock_type}{Either \code{"structural"} for a user supplied standardized
-shock or \code{"empirical"} to use \code{xi[time, ]}.}
+\item{shock_type}{Either \code{"user_defined"} for a user supplied standardized
+shock or \code{"historical"} to use \code{xi[time, ]}.}
 
 \item{shock}{Numeric standardized shock vector. Required for
-\code{shock_type = "structural"}.}
+\code{shock_type = "user_defined"}.}
 
-\item{time}{Initial time index used for \code{H_t} and empirical shocks.}
+\item{time}{Initial time index used for \code{H_t} and historical shocks.}
 
 \item{n.ahead}{Number of horizons.}
 
@@ -43,7 +43,7 @@ A matrix of dimension \verb{n.ahead x K * (K + 1) / 2} for
 \description{
 Computes the closed-form volatility impulse response function for a
 symmetric BEKK model as in Hafner and Herwartz (2006). The function supports
-structural standardized shocks supplied by the user and empirical shocks
+user-specified standardized shocks and historical shocks
 obtained from the fitted model's standardized innovations.
 }
 \keyword{internal}

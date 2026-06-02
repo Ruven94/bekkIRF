@@ -7,7 +7,7 @@
 compute_irf(
   bekk_model,
   root_type = c("spectral", "cholesky", "spec", "chol"),
-  shock_type = c("structural", "empirical"),
+  shock_type = c("user_defined", "historical"),
   shock = NULL,
   time = NULL,
   simsamp = 10000,
@@ -33,13 +33,13 @@ scalar-BEKK parameters \code{a}, \code{g}, optionally \code{b}.}
 \item{root_type}{Matrix root used to map standardized innovations into
 shocks. Use \code{"spectral"}/\code{"spec"} or \code{"cholesky"}/\code{"chol"}.}
 
-\item{shock_type}{Either \code{"structural"} for a user supplied standardized
-shock or \code{"empirical"} to use \code{xi[time, ]}.}
+\item{shock_type}{Either \code{"user_defined"} for a user supplied standardized
+shock or \code{"historical"} to use \code{xi[time, ]}.}
 
 \item{shock}{Numeric standardized shock vector. Required for
-\code{shock_type = "structural"}.}
+\code{shock_type = "user_defined"}.}
 
-\item{time}{Initial time index used for \code{H_0} and empirical shocks.}
+\item{time}{Initial time index used for \code{H_0} and historical shocks.}
 
 \item{simsamp}{Number of Monte Carlo paths.}
 

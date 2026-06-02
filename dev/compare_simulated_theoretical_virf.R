@@ -30,7 +30,7 @@ dir.create(file.path(root, "dev", "figures"), recursive = TRUE, showWarnings = F
 dir.create(file.path(root, "dev", "results"), recursive = TRUE, showWarnings = FALSE)
 
 root_type <- "spectral"
-shock_type <- "empirical"
+shock_type <- "historical"
 time <- 444L
 n.ahead <- 25L
 simsamp <- 100000L
@@ -120,7 +120,7 @@ p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = horizon, y = value, color = typ
     title = "Simulation vs theoretical symmetric VIRF",
     subtitle = paste0(
       "root = ", root_type,
-      ", empirical shock at t = ", time,
+      ", historical shock at t = ", time,
       ", simsamp = ", format(simsamp, big.mark = ",")
     ),
     x = "Horizon",

@@ -25,7 +25,7 @@ The package currently supports:
   impulse response functions (CIRFs), skewness impulse response functions
   (SIRFs), kurtosis impulse response functions (KIRFs), and weights impulse
   response functions (WIRFs) for optimal portfolio weights,
-- empirical and structural shocks,
+- historical and user-specified shocks,
 - spectral and Cholesky matrix roots,
 - BEKK, diagonal BEKK, and scalar BEKK outputs from `BEKKs`,
 - parameter bootstrap based confidence intervals,
@@ -59,7 +59,7 @@ fit <- BEKKs::bekk_fit(spec, gold_msci_returns)
 
 irf <- compute_irf(
   fit,
-  shock_type = "empirical",
+  shock_type = "historical",
   time = 444,
   root_type = "spectral",
   simsamp = 10000,
@@ -92,7 +92,7 @@ boot <- bekk_bootstrap(
 
 irf_boot <- compute_irf(
   fit,
-  shock_type = "empirical",
+  shock_type = "historical",
   time = 444,
   simsamp = 10000,
   n.ahead = 100,

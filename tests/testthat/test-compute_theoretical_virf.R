@@ -1,4 +1,4 @@
-test_that("compute_theoretical_virf returns vech output for structural shocks", {
+test_that("compute_theoretical_virf returns vech output for user-specified shocks", {
   K <- 2
   N <- 10
   H <- diag(c(2, 3))
@@ -56,7 +56,7 @@ test_that("compute_theoretical_virf first horizon follows HH2006 closed form", {
   expect_equal(out[, , 2], expected_second, tolerance = 1e-12)
 })
 
-test_that("compute_theoretical_virf empirical shock matches equivalent structural shock", {
+test_that("compute_theoretical_virf historical shock matches equivalent user-specified shock", {
   K <- 2
   N <- 12
   H <- diag(c(1.5, 2.5))
@@ -72,22 +72,22 @@ test_that("compute_theoretical_virf empirical shock matches equivalent structura
 
   xi <- compute_xi(bekk_model$H_t, data, root_type = "spec")
 
-  out_empirical <- compute_theoretical_virf(
+  out_historical <- compute_theoretical_virf(
     bekk_model,
-    shock_type = "empirical",
+    shock_type = "historical",
     time = 5,
     n.ahead = 3
   )
 
-  out_structural <- compute_theoretical_virf(
+  out_user_defined <- compute_theoretical_virf(
     bekk_model,
-    shock_type = "structural",
+    shock_type = "user_defined",
     shock = xi[5, ],
     time = 5,
     n.ahead = 3
   )
 
-  expect_equal(out_empirical, out_structural, tolerance = 1e-12)
+  expect_equal(out_historical, out_user_defined, tolerance = 1e-12)
 })
 
 test_that("compute_theoretical_virf supports root aliases", {

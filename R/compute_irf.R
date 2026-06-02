@@ -9,11 +9,11 @@
 #'   scalar-BEKK parameters `a`, `g`, optionally `b`.
 #' @param root_type Matrix root used to map standardized innovations into
 #'   shocks. Use `"spectral"`/`"spec"` or `"cholesky"`/`"chol"`.
-#' @param shock_type Either `"structural"` for a user supplied standardized
-#'   shock or `"empirical"` to use `xi[time, ]`.
+#' @param shock_type Either `"user_defined"` for a user supplied standardized
+#'   shock or `"historical"` to use `xi[time, ]`.
 #' @param shock Numeric standardized shock vector. Required for
-#'   `shock_type = "structural"`.
-#' @param time Initial time index used for `H_0` and empirical shocks.
+#'   `shock_type = "user_defined"`.
+#' @param time Initial time index used for `H_0` and historical shocks.
 #' @param simsamp Number of Monte Carlo paths.
 #' @param n.ahead Number of horizons.
 #' @param seed Integer random seed.
@@ -69,7 +69,7 @@
 #' @export
 compute_irf <- function(bekk_model,
                         root_type = c("spectral", "cholesky", "spec", "chol"),
-                        shock_type = c("structural", "empirical"),
+                        shock_type = c("user_defined", "historical"),
                         shock = NULL,
                         time = NULL,
                         simsamp = 10000,
@@ -143,10 +143,10 @@ compute_irf <- function(bekk_model,
 
   H_0 <- matrix(H_t[time, ], nrow = K, ncol = K)
 
-  if (shock_type == "empirical") {
+  if (shock_type == "historical") {
     shock <- xi[time, ]
   } else if (is.null(shock)) {
-    stop("`shock` must be supplied for `shock_type = \"structural\"`.")
+    stop("`shock` must be supplied for `shock_type = \"user_defined\"`.")
   }
 
   shock <- as.numeric(shock)

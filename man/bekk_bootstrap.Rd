@@ -82,7 +82,7 @@ boot <- bekk_bootstrap(
 
 irf <- compute_irf(
   fit,
-  shock_type = "empirical",
+  shock_type = "historical",
   time = 444,
   bekk_bootstrap = boot
 )

@@ -27,7 +27,7 @@ test_that("compute_irf supports spectral and cholesky roots", {
   out_chol <- compute_irf(
     bekk_model,
     root_type = "cholesky",
-    shock_type = "empirical",
+    shock_type = "historical",
     time = 10,
     simsamp = 5,
     n.ahead = 3
@@ -64,7 +64,7 @@ test_that("compute_irf supports root and shock type combinations", {
 
   combinations <- expand.grid(
     root_type = c("spectral", "cholesky"),
-    shock_type = c("structural", "empirical"),
+    shock_type = c("user_defined", "historical"),
     stringsAsFactors = FALSE
   )
 
@@ -76,7 +76,7 @@ test_that("compute_irf supports root and shock type combinations", {
       bekk_model,
       root_type = root_type,
       shock_type = shock_type,
-      shock = if (shock_type == "structural") shock else NULL,
+      shock = if (shock_type == "user_defined") shock else NULL,
       time = time,
       simsamp = 3,
       n.ahead = 2,
@@ -96,7 +96,7 @@ test_that("compute_irf supports root and shock type combinations", {
     expect_true(all(is.finite(out$VIRF_mean)))
     expect_true(all(is.finite(out$CIRF_mean)))
 
-    if (shock_type == "structural") {
+    if (shock_type == "user_defined") {
       expect_equal(unname(out$settings$shock), shock)
     } else {
       xi <- compute_xi(H_t, data, root_type = root_alias)
@@ -579,7 +579,7 @@ test_that("bekkIRF print, summary, and plot methods work", {
 
   printed <- capture.output(print(out))
   expect_true(any(grepl("bekkIRF object", printed, fixed = TRUE)))
-  expect_true(any(grepl("root_type = spec, shock_type = structural", printed, fixed = TRUE)))
+  expect_true(any(grepl("root_type = spec, shock_type = user_defined", printed, fixed = TRUE)))
   expect_true(any(grepl("shock = c(1, 0)", printed, fixed = TRUE)))
   expect_true(any(grepl("Bootstrap: none", printed, fixed = TRUE)))
 
