@@ -299,12 +299,10 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
             int j0 = row + col * K;
 
             arma::rowvec row1 = Kp1.row(j0);
-            arma::colvec col1 = Kp1.col(j0);
             arma::rowvec row0 = Kp0.row(j0);
-            arma::colvec col0 = Kp0.col(j0);
 
-            double num1 = arma::as_scalar(row1 * psi_kurt * col1);
-            double num0 = arma::as_scalar(row0 * psi_kurt * col0);
+            double num1 = arma::as_scalar(row1 * psi_kurt * row1.t());
+            double num0 = arma::as_scalar(row0 * psi_kurt * row0.t());
 
             double den1 = H_shock_next(row, row) * H_shock_next(col, col);
             double den0 = H_base_next(row, row) * H_base_next(col, col);
@@ -318,13 +316,13 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
         for (int j = 0; j < K; ++j) {
           int col_idx = j + j * K;
 
-          arma::rowvec r1 = R1.row(j);
-          arma::rowvec r0 = R0.row(j);
-          arma::colvec v1 = Kp1.col(col_idx);
-          arma::colvec v0 = Kp0.col(col_idx);
+          arma::rowvec left1 = Kp1.row(col_idx);
+          arma::rowvec left0 = Kp0.row(col_idx);
+          arma::colvec right1 = R1.row(j).t();
+          arma::colvec right0 = R0.row(j).t();
 
-          double s1 = arma::as_scalar(r1 * psi_skew.t() * v1);
-          double s0 = arma::as_scalar(r0 * psi_skew.t() * v0);
+          double s1 = arma::as_scalar(left1 * psi_skew * right1);
+          double s0 = arma::as_scalar(left0 * psi_skew * right0);
 
           double h1jj = H_shock_next(j, j);
           double h0jj = H_base_next(j, j);
@@ -378,12 +376,10 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
               int j0 = row + col * K;
 
               arma::rowvec row1 = Kp1.row(j0);
-              arma::colvec col1 = Kp1.col(j0);
               arma::rowvec row0 = Kp0.row(j0);
-              arma::colvec col0 = Kp0.col(j0);
 
-              double num1 = arma::as_scalar(row1 * psi_kurt * col1);
-              double num0 = arma::as_scalar(row0 * psi_kurt * col0);
+              double num1 = arma::as_scalar(row1 * psi_kurt * row1.t());
+              double num0 = arma::as_scalar(row0 * psi_kurt * row0.t());
 
               double den1 = H_shock(row, row) * H_shock(col, col);
               double den0 = H_base(row, row) * H_base(col, col);
@@ -397,13 +393,13 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
           for (int j = 0; j < K; ++j) {
             int col_idx = j + j * K;
 
-            arma::rowvec r1 = R1.row(j);
-            arma::rowvec r0 = R0.row(j);
-            arma::colvec v1 = Kp1.col(col_idx);
-            arma::colvec v0 = Kp0.col(col_idx);
+            arma::rowvec left1 = Kp1.row(col_idx);
+            arma::rowvec left0 = Kp0.row(col_idx);
+            arma::colvec right1 = R1.row(j).t();
+            arma::colvec right0 = R0.row(j).t();
 
-            double s1 = arma::as_scalar(r1 * psi_skew.t() * v1);
-            double s0 = arma::as_scalar(r0 * psi_skew.t() * v0);
+            double s1 = arma::as_scalar(left1 * psi_skew * right1);
+            double s0 = arma::as_scalar(left0 * psi_skew * right0);
 
             double h1jj = H_shock(j, j);
             double h0jj = H_base(j, j);

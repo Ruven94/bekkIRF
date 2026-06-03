@@ -147,6 +147,99 @@ test_that("compute_irf root aliases match long-form root names", {
   expect_equal(out_cholesky$CIRF_mean, out_chol$CIRF_mean)
 })
 
+test_that("compute_irf uses cholesky root orientation for higher moments", {
+  K <- 2
+  N <- 6
+  xi_input <- matrix(rep(c(0.35, -0.55), N), ncol = K, byrow = TRUE)
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  C0 <- matrix(c(0.25, 0.06,
+                 0.00, 0.20), nrow = K)
+  A <- matrix(c(0.20, 0.35,
+                -0.15, 0.25), nrow = K)
+  G <- matrix(c(0.50, 0.10,
+                0.05, 0.45), nrow = K)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = xi_input,
+    C0 = C0,
+    A = A,
+    G = G,
+    asymmetric = FALSE
+  )
+
+  shock <- c(1.1, -0.7)
+
+  out <- compute_irf(
+    bekk_model,
+    root_type = "cholesky",
+    shock_type = "user_defined",
+    shock = shock,
+    time = 3,
+    simsamp = 1,
+    n.ahead = 1,
+    seed = 99,
+    calc_virf = FALSE,
+    calc_cirf = FALSE,
+    calc_kirf = TRUE,
+    calc_sirf = TRUE,
+    calc_wirf = FALSE
+  )
+
+  xi <- compute_xi(H_t, xi_input, root_type = "chol")
+  psi_kurt <- compute_psi_kurtosis(xi)
+  psi_skew <- compute_psi_skewness(xi)
+
+  update_bekk <- function(H, e) {
+    C0 %*% t(C0) + t(A) %*% tcrossprod(e) %*% A + t(G) %*% H %*% G
+  }
+
+  H_0 <- diag(K)
+  Q_0 <- matroot(H_0, type = "chol")
+  H_base <- update_bekk(H_0, drop(Q_0 %*% xi[1, ]))
+  H_shock <- update_bekk(H_0, drop(Q_0 %*% shock))
+
+  compute_higher_moments <- function(H) {
+    R <- matroot(H, type = "chol")
+    Kp <- kronecker(R, R)
+    fourth_moment <- Kp %*% psi_kurt %*% t(Kp)
+    third_moment <- Kp %*% psi_skew %*% t(R)
+
+    kurtosis <- numeric(K * (K + 1) / 2)
+    out_idx <- 1L
+    for (col in seq_len(K)) {
+      for (row in col:K) {
+        vec_idx <- row + (col - 1L) * K
+        kurtosis[out_idx] <- fourth_moment[vec_idx, vec_idx] /
+          (H[row, row] * H[col, col])
+        out_idx <- out_idx + 1L
+      }
+    }
+
+    skewness <- vapply(seq_len(K), function(j) {
+      vec_idx <- j + (j - 1L) * K
+      third_moment[vec_idx, j] / H[j, j]^1.5
+    }, numeric(1))
+
+    list(kurtosis = kurtosis, skewness = skewness)
+  }
+
+  base_moments <- compute_higher_moments(H_base)
+  shock_moments <- compute_higher_moments(H_shock)
+
+  expect_equal(
+    unname(drop(out$KIRF_mean[1, ])),
+    unname(shock_moments$kurtosis - base_moments$kurtosis),
+    tolerance = 1e-12
+  )
+  expect_equal(
+    unname(drop(out$SIRF_mean[1, ])),
+    unname(shock_moments$skewness - base_moments$skewness),
+    tolerance = 1e-12
+  )
+})
+
 test_that("compute_irf supports BEKKs bekk, dbekk, and sbekk model outputs", {
   skip_if_not_installed("BEKKs")
 
