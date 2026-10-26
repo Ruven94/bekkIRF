@@ -10,8 +10,8 @@ compute_eta(e_t, signs)
 \item{e_t}{A numeric vector of returns at time t.}
 
 \item{signs}{A numeric vector of length \code{length(e_t)} consisting only of
-\code{1} and \code{-1}. A value of \code{1} requires a positive return, while \code{-1}
-requires a negative return.}
+\code{1} and \code{-1}. A value of \code{1} requires a non-negative return, while \code{-1}
+requires a non-positive return.}
 }
 \value{
 A numeric vector of the same length as \code{e_t} representing the
@@ -21,6 +21,7 @@ asymmetric return component.
 Computes the asymmetric return component used in the asymmetric
 BEKK recursion. The return vector is retained only if the sign pattern
 specified by \code{signs} is jointly satisfied; otherwise a zero vector is
-returned.
+returned. Zero components are included in the joint sign condition,
+consistently with the BEKKs indicator.
 }
 \keyword{internal}

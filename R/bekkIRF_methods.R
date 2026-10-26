@@ -317,6 +317,7 @@ bekk_irf_settings_line <- function(x) {
   line <- paste0(
     "root_type = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("root_type", "root"))),
     ", shock_type = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("shock_type"))),
+    ", higher_moment_mode = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("higher_moment_mode"))),
     ", time = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("time"))),
     ", simsamp = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("simsamp")), big_mark = TRUE),
     ", n.ahead = ", bekk_irf_format_scalar(bekk_irf_setting_value(settings, c("n.ahead", "n_ahead")))

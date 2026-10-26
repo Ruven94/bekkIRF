@@ -27,9 +27,14 @@ The package currently supports:
   response functions (WIRFs) for optimal portfolio weights,
 - historical and user-specified shocks,
 - spectral and Cholesky matrix roots,
+- Hafner-style normalization for higher-moment responses by default, with
+  pathwise normalization available for comparison,
 - BEKK, diagonal BEKK, and scalar BEKK outputs from `BEKKs`,
 - parameter bootstrap based confidence intervals,
 - S3 `print()`, `summary()`, and `plot()` methods for IRF objects.
+
+The full development version retains SIRF and KIRF. The methodological
+validation of KIRF remains open.
 
 ## Installation
 
@@ -82,12 +87,19 @@ Bootstrap confidence intervals are obtained in two steps. First, use
 `bekk_bootstrap()` to generate bootstrap parameter draws. Then pass the
 resulting `"bekkBootstrap"` object to `compute_irf()`.
 
+Bootstrap draws are accepted only when the fitted model is valid, parameter
+estimates and log likelihood are finite, and the optimizer stops before its
+iteration limit. Inspect `boot$converged`, `boot$error`, and
+`boot$fit_diagnostics`; excluded draws are not used for confidence intervals.
+This is a conservative acceptance rule, since `BEKKs` does not expose a
+separate optimizer convergence flag.
+
 ```{r bootstrap-workflow, eval = FALSE}
 boot <- bekk_bootstrap(
   fit,
   bekk_spec_model = spec,
   bootsamp = 999,
-  cores = parallel::detectCores() - 1
+  cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE)
 )
 
 irf_boot <- compute_irf(

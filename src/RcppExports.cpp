@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // compute_irf_core_cpp
-Rcpp::List compute_irf_core_cpp(const arma::mat& H_0, const arma::vec& shock, const arma::mat& xi, const arma::mat& C, const arma::mat& A, const arma::mat& G, const arma::mat& B, const arma::vec& signs, const arma::mat& psi_kurt, const arma::mat& psi_skew, const int root_type, const bool asym, const int simsamp, const int n_ahead, const int seed, const bool calc_virf, const bool calc_cirf, const bool calc_kirf, const bool calc_sirf, const bool calc_wirf);
-RcppExport SEXP _bekkIRF_compute_irf_core_cpp(SEXP H_0SEXP, SEXP shockSEXP, SEXP xiSEXP, SEXP CSEXP, SEXP ASEXP, SEXP GSEXP, SEXP BSEXP, SEXP signsSEXP, SEXP psi_kurtSEXP, SEXP psi_skewSEXP, SEXP root_typeSEXP, SEXP asymSEXP, SEXP simsampSEXP, SEXP n_aheadSEXP, SEXP seedSEXP, SEXP calc_virfSEXP, SEXP calc_cirfSEXP, SEXP calc_kirfSEXP, SEXP calc_sirfSEXP, SEXP calc_wirfSEXP) {
+Rcpp::List compute_irf_core_cpp(const arma::mat& H_0, const arma::vec& shock, const arma::mat& xi, const arma::mat& C, const arma::mat& A, const arma::mat& G, const arma::mat& B, const arma::vec& signs, const arma::mat& psi_kurt, const arma::mat& psi_skew, const int root_type, const int higher_moment_mode, const bool asym, const int simsamp, const int n_ahead, const int seed, const bool calc_virf, const bool calc_cirf, const bool calc_kirf, const bool calc_sirf, const bool calc_wirf);
+RcppExport SEXP _bekkIRF_compute_irf_core_cpp(SEXP H_0SEXP, SEXP shockSEXP, SEXP xiSEXP, SEXP CSEXP, SEXP ASEXP, SEXP GSEXP, SEXP BSEXP, SEXP signsSEXP, SEXP psi_kurtSEXP, SEXP psi_skewSEXP, SEXP root_typeSEXP, SEXP higher_moment_modeSEXP, SEXP asymSEXP, SEXP simsampSEXP, SEXP n_aheadSEXP, SEXP seedSEXP, SEXP calc_virfSEXP, SEXP calc_cirfSEXP, SEXP calc_kirfSEXP, SEXP calc_sirfSEXP, SEXP calc_wirfSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -28,6 +28,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type psi_kurt(psi_kurtSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type psi_skew(psi_skewSEXP);
     Rcpp::traits::input_parameter< const int >::type root_type(root_typeSEXP);
+    Rcpp::traits::input_parameter< const int >::type higher_moment_mode(higher_moment_modeSEXP);
     Rcpp::traits::input_parameter< const bool >::type asym(asymSEXP);
     Rcpp::traits::input_parameter< const int >::type simsamp(simsampSEXP);
     Rcpp::traits::input_parameter< const int >::type n_ahead(n_aheadSEXP);
@@ -37,13 +38,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type calc_kirf(calc_kirfSEXP);
     Rcpp::traits::input_parameter< const bool >::type calc_sirf(calc_sirfSEXP);
     Rcpp::traits::input_parameter< const bool >::type calc_wirf(calc_wirfSEXP);
-    rcpp_result_gen = Rcpp::wrap(compute_irf_core_cpp(H_0, shock, xi, C, A, G, B, signs, psi_kurt, psi_skew, root_type, asym, simsamp, n_ahead, seed, calc_virf, calc_cirf, calc_kirf, calc_sirf, calc_wirf));
+    rcpp_result_gen = Rcpp::wrap(compute_irf_core_cpp(H_0, shock, xi, C, A, G, B, signs, psi_kurt, psi_skew, root_type, higher_moment_mode, asym, simsamp, n_ahead, seed, calc_virf, calc_cirf, calc_kirf, calc_sirf, calc_wirf));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_bekkIRF_compute_irf_core_cpp", (DL_FUNC) &_bekkIRF_compute_irf_core_cpp, 20},
+    {"_bekkIRF_compute_irf_core_cpp", (DL_FUNC) &_bekkIRF_compute_irf_core_cpp, 21},
     {NULL, NULL, 0}
 };
 

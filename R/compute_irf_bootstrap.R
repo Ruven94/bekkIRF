@@ -31,6 +31,7 @@ compute_irf_bootstrap_paths <- function(bekk_bootstrap,
                                         psi_kurt,
                                         psi_skew,
                                         root_type_id,
+                                        higher_moment_mode_id,
                                         asym,
                                         simsamp,
                                         n_ahead,
@@ -170,6 +171,7 @@ compute_irf_bootstrap_paths <- function(bekk_bootstrap,
         psi_kurt = psi_kurt,
         psi_skew = psi_skew,
         root_type = root_type_id,
+        higher_moment_mode = higher_moment_mode_id,
         asym = asym,
         simsamp = simsamp,
         n_ahead = n_ahead,
@@ -201,6 +203,7 @@ compute_irf_bootstrap_paths <- function(bekk_bootstrap,
       psi_kurt = psi_kurt,
       psi_skew = psi_skew,
       root_type_id = root_type_id,
+      higher_moment_mode_id = higher_moment_mode_id,
       simsamp = simsamp,
       n_ahead = n_ahead,
       seed = seed,
@@ -305,7 +308,11 @@ compute_irf_bootstrap_paths <- function(bekk_bootstrap,
   }
 
   if (length(used_indices) == 0L) {
-    stop("All bootstrap IRF computations failed.")
+    first_error <- errors[!is.na(errors)][1L]
+    if (is.na(first_error)) {
+      first_error <- "No worker error message was returned."
+    }
+    stop("All bootstrap IRF computations failed. First error: ", first_error)
   }
 
   for (name in names(paths)) {

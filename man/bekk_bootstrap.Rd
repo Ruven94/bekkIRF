@@ -60,7 +60,12 @@ batch. The default uses \code{cores}.}
 An object of class \code{"bekkBootstrap"} containing bootstrap parameter
 arrays \code{C0}, \code{A}, \code{G}, optionally \code{B}, diagnostic vectors \code{converged}
 and \code{error}, and a \code{settings} list with bootstrap choices and
-standardized-innovation filtering diagnostics.
+standardized-innovation filtering diagnostics. \code{converged} is a
+conservative acceptance flag: estimates must be finite, \code{BEKK_valid}
+must be true, and the optimizer must stop before \code{max_iter}. BEKKs does
+not expose a separate convergence flag, so fits reaching the iteration
+limit are excluded even if they might have converged on that iteration.
+The \code{fit_diagnostics} data frame retains iteration counts and validity.
 }
 \description{
 Simulates bootstrap return paths from a fitted BEKK model by resampling the

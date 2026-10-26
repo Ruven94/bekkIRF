@@ -60,7 +60,7 @@ inline arma::vec compute_eta_cpp(const arma::vec& e, const arma::vec& signs) {
   arma::vec prod = signs % e;
 
   for (arma::uword i = 0; i < prod.n_elem; ++i) {
-    if (prod(i) <= 0.0) {
+    if (prod(i) < 0.0) {
       return arma::zeros<arma::vec>(e.n_elem);
     }
   }
@@ -146,6 +146,52 @@ inline arma::rowvec wirf_row_cpp(const arma::mat& H1, const arma::mat& H0) {
 }
 
 // -----------------------------------------------------------------------------
+// Helper: raw third- and fourth-moment terms for Hafner-style normalization
+// -----------------------------------------------------------------------------
+inline void add_higher_raw_cpp(const arma::mat& H,
+                               const arma::mat& psi_kurt,
+                               const arma::mat& psi_skew,
+                               const int root_type,
+                               const int horizon,
+                               const bool calc_kirf,
+                               const bool calc_sirf,
+                               arma::mat& KIRF_raw_sum,
+                               arma::mat& SIRF_raw_sum) {
+  int K = H.n_rows;
+  arma::mat R = matroot_cpp(H, root_type);
+  arma::mat Kp = arma::kron(R, R);
+
+  if (calc_kirf) {
+    int js = 0;
+    for (int col = 0; col < K; ++col) {
+      for (int row = col; row < K; ++row) {
+        int idx = row + col * K;
+        arma::rowvec row_kp = Kp.row(idx);
+        KIRF_raw_sum(horizon, js++) += arma::as_scalar(row_kp * psi_kurt * row_kp.t());
+      }
+    }
+  }
+
+  if (calc_sirf) {
+    for (int j = 0; j < K; ++j) {
+      int idx = j + j * K;
+      arma::rowvec left = Kp.row(idx);
+      arma::colvec right = R.row(j).t();
+      SIRF_raw_sum(horizon, j) += arma::as_scalar(left * psi_skew * right);
+    }
+  }
+}
+
+inline void add_hdiag_cpp(const arma::mat& H,
+                          const int horizon,
+                          arma::mat& Hdiag_sum) {
+  int K = H.n_rows;
+  for (int j = 0; j < K; ++j) {
+    Hdiag_sum(horizon, j) += H(j, j);
+  }
+}
+
+// -----------------------------------------------------------------------------
 // [[Rcpp::export]]
 Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
                                 const arma::vec& shock,
@@ -158,6 +204,7 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
                                 const arma::mat& psi_kurt,
                                 const arma::mat& psi_skew,
                                 const int root_type,
+                                const int higher_moment_mode,
                                 const bool asym,
                                 const int simsamp,
                                 const int n_ahead,
@@ -173,6 +220,7 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
   int K2 = K * K;
   int n_sel = K * (K + 1) / 2;
   int n_cirf = K * (K - 1) / 2;
+  bool higher_hafner = higher_moment_mode == 0;
 
   if (N <= 0) {
     Rcpp::stop("`xi` must have at least one row.");
@@ -188,6 +236,10 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
 
   if (n_ahead <= 0) {
     Rcpp::stop("`n_ahead` must be positive.");
+  }
+
+  if (higher_moment_mode != 0 && higher_moment_mode != 1) {
+    Rcpp::stop("Invalid `higher_moment_mode`.");
   }
 
   if (H_0.n_rows != (arma::uword)K || H_0.n_cols != (arma::uword)K) {
@@ -224,12 +276,30 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
   arma::mat KIRF_sum;
   arma::mat SIRF_sum;
   arma::mat WIRF_sum;
+  arma::mat KIRF_raw_shock_sum;
+  arma::mat KIRF_raw_base_sum;
+  arma::mat SIRF_raw_shock_sum;
+  arma::mat SIRF_raw_base_sum;
+  arma::mat Hdiag_shock_sum;
+  arma::mat Hdiag_base_sum;
 
   if (calc_virf) VIRF_sum = arma::mat(n_ahead, n_sel, fill::zeros);
   if (calc_cirf) CIRF_sum = arma::mat(n_ahead, n_cirf, fill::zeros);
-  if (calc_kirf) KIRF_sum = arma::mat(n_ahead, n_sel, fill::zeros);
-  if (calc_sirf) SIRF_sum = arma::mat(n_ahead, K, fill::zeros);
+  if (calc_kirf && !higher_hafner) KIRF_sum = arma::mat(n_ahead, n_sel, fill::zeros);
+  if (calc_sirf && !higher_hafner) SIRF_sum = arma::mat(n_ahead, K, fill::zeros);
   if (calc_wirf) WIRF_sum = arma::mat(n_ahead, K, fill::zeros);
+  if (higher_hafner && calc_kirf) {
+    KIRF_raw_shock_sum = arma::mat(n_ahead, n_sel, fill::zeros);
+    KIRF_raw_base_sum = arma::mat(n_ahead, n_sel, fill::zeros);
+  }
+  if (higher_hafner && calc_sirf) {
+    SIRF_raw_shock_sum = arma::mat(n_ahead, K, fill::zeros);
+    SIRF_raw_base_sum = arma::mat(n_ahead, K, fill::zeros);
+  }
+  if (higher_hafner && (calc_kirf || calc_sirf)) {
+    Hdiag_shock_sum = arma::mat(n_ahead, K, fill::zeros);
+    Hdiag_base_sum = arma::mat(n_ahead, K, fill::zeros);
+  }
 
   std::mt19937 rng(static_cast<std::mt19937::result_type>(seed));
   std::uniform_int_distribution<int> draw_idx(0, N - 1);
@@ -251,8 +321,8 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
 
     if (calc_virf) VIRF_j = arma::mat(n_ahead, n_sel, fill::zeros);
     if (calc_cirf) CIRF_j = arma::mat(n_ahead, n_cirf, fill::zeros);
-    if (calc_kirf) KIRF_j = arma::mat(n_ahead, n_sel, fill::zeros);
-    if (calc_sirf) SIRF_j = arma::mat(n_ahead, K, fill::zeros);
+    if (calc_kirf && !higher_hafner) KIRF_j = arma::mat(n_ahead, n_sel, fill::zeros);
+    if (calc_sirf && !higher_hafner) SIRF_j = arma::mat(n_ahead, K, fill::zeros);
     if (calc_wirf) WIRF_j = arma::mat(n_ahead, K, fill::zeros);
 
     // -----------------------------------------------------------------------
@@ -286,7 +356,18 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
       WIRF_j.row(0) = wirf_row_cpp(H_shock_next, H_base_next);
     }
 
-    if (calc_kirf || calc_sirf) {
+    if ((calc_kirf || calc_sirf) && higher_hafner) {
+      add_hdiag_cpp(H_shock_next, 0, Hdiag_shock_sum);
+      add_hdiag_cpp(H_base_next, 0, Hdiag_base_sum);
+      add_higher_raw_cpp(
+        H_shock_next, psi_kurt, psi_skew, root_type, 0,
+        calc_kirf, calc_sirf, KIRF_raw_shock_sum, SIRF_raw_shock_sum
+      );
+      add_higher_raw_cpp(
+        H_base_next, psi_kurt, psi_skew, root_type, 0,
+        calc_kirf, calc_sirf, KIRF_raw_base_sum, SIRF_raw_base_sum
+      );
+    } else if (calc_kirf || calc_sirf) {
       arma::mat R1 = matroot_cpp(H_shock_next, root_type);
       arma::mat R0 = matroot_cpp(H_base_next, root_type);
       arma::mat Kp1 = arma::kron(R1, R1);
@@ -363,7 +444,18 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
         WIRF_j.row(i) = wirf_row_cpp(H_shock, H_base);
       }
 
-      if (calc_kirf || calc_sirf) {
+      if ((calc_kirf || calc_sirf) && higher_hafner) {
+        add_hdiag_cpp(H_shock, i, Hdiag_shock_sum);
+        add_hdiag_cpp(H_base, i, Hdiag_base_sum);
+        add_higher_raw_cpp(
+          H_shock, psi_kurt, psi_skew, root_type, i,
+          calc_kirf, calc_sirf, KIRF_raw_shock_sum, SIRF_raw_shock_sum
+        );
+        add_higher_raw_cpp(
+          H_base, psi_kurt, psi_skew, root_type, i,
+          calc_kirf, calc_sirf, KIRF_raw_base_sum, SIRF_raw_base_sum
+        );
+      } else if (calc_kirf || calc_sirf) {
         arma::mat R1 = matroot_cpp(H_shock, root_type);
         arma::mat R0 = matroot_cpp(H_base, root_type);
         arma::mat Kp1 = arma::kron(R1, R1);
@@ -412,8 +504,8 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
 
     if (calc_virf) VIRF_sum += VIRF_j;
     if (calc_cirf) CIRF_sum += CIRF_j;
-    if (calc_kirf) KIRF_sum += KIRF_j;
-    if (calc_sirf) SIRF_sum += SIRF_j;
+    if (calc_kirf && !higher_hafner) KIRF_sum += KIRF_j;
+    if (calc_sirf && !higher_hafner) SIRF_sum += SIRF_j;
     if (calc_wirf) WIRF_sum += WIRF_j;
   }
 
@@ -432,13 +524,59 @@ Rcpp::List compute_irf_core_cpp(const arma::mat& H_0,
   }
 
   if (calc_kirf) {
-    out["KIRF_mean"] = KIRF_sum / simsamp;
+    if (higher_hafner) {
+      arma::mat KIRF_mean(n_ahead, n_sel, fill::zeros);
+      double inv_simsamp = 1.0 / static_cast<double>(simsamp);
+
+      for (int h = 0; h < n_ahead; ++h) {
+        int js = 0;
+        for (int col = 0; col < K; ++col) {
+          for (int row = col; row < K; ++row) {
+            double mean_num_shock = KIRF_raw_shock_sum(h, js) * inv_simsamp;
+            double mean_num_base = KIRF_raw_base_sum(h, js) * inv_simsamp;
+            double mean_h_row_shock = Hdiag_shock_sum(h, row) * inv_simsamp;
+            double mean_h_col_shock = Hdiag_shock_sum(h, col) * inv_simsamp;
+            double mean_h_row_base = Hdiag_base_sum(h, row) * inv_simsamp;
+            double mean_h_col_base = Hdiag_base_sum(h, col) * inv_simsamp;
+
+            KIRF_mean(h, js) =
+              mean_num_shock / (mean_h_row_shock * mean_h_col_shock) -
+              mean_num_base / (mean_h_row_base * mean_h_col_base);
+            ++js;
+          }
+        }
+      }
+
+      out["KIRF_mean"] = KIRF_mean;
+    } else {
+      out["KIRF_mean"] = KIRF_sum / simsamp;
+    }
   } else {
     out["KIRF_mean"] = R_NilValue;
   }
 
   if (calc_sirf) {
-    out["SIRF_mean"] = SIRF_sum / simsamp;
+    if (higher_hafner) {
+      arma::mat SIRF_mean(n_ahead, K, fill::zeros);
+      double inv_simsamp = 1.0 / static_cast<double>(simsamp);
+
+      for (int h = 0; h < n_ahead; ++h) {
+        for (int j = 0; j < K; ++j) {
+          double mean_num_shock = SIRF_raw_shock_sum(h, j) * inv_simsamp;
+          double mean_num_base = SIRF_raw_base_sum(h, j) * inv_simsamp;
+          double mean_h_shock = Hdiag_shock_sum(h, j) * inv_simsamp;
+          double mean_h_base = Hdiag_base_sum(h, j) * inv_simsamp;
+
+          SIRF_mean(h, j) =
+            mean_num_shock / std::pow(mean_h_shock, 1.5) -
+            mean_num_base / std::pow(mean_h_base, 1.5);
+        }
+      }
+
+      out["SIRF_mean"] = SIRF_mean;
+    } else {
+      out["SIRF_mean"] = SIRF_sum / simsamp;
+    }
   } else {
     out["SIRF_mean"] = R_NilValue;
   }

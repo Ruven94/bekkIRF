@@ -21,7 +21,8 @@
 #' correlation impulse response functions (CIRFs), skewness impulse response
 #' functions (SIRFs), kurtosis impulse response functions (KIRFs), and weights
 #' impulse response functions (WIRFs) for optimal portfolio weights whenever
-#' the corresponding quantities are requested in [compute_irf()].
+#' the corresponding quantities are requested in [compute_irf()]. Higher-moment
+#' responses use Hafner-style normalization by default.
 #'
 #' @references
 #' Hafner, C. M. and Herwartz, H. (2006). Volatility impulse responses for

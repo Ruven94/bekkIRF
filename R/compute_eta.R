@@ -3,12 +3,13 @@
 #' Computes the asymmetric return component used in the asymmetric
 #' BEKK recursion. The return vector is retained only if the sign pattern
 #' specified by `signs` is jointly satisfied; otherwise a zero vector is
-#' returned.
+#' returned. Zero components are included in the joint sign condition,
+#' consistently with the BEKKs indicator.
 #'
 #' @param e_t A numeric vector of returns at time t.
 #' @param signs A numeric vector of length `length(e_t)` consisting only of
-#'   `1` and `-1`. A value of `1` requires a positive return, while `-1`
-#'   requires a negative return.
+#'   `1` and `-1`. A value of `1` requires a non-negative return, while `-1`
+#'   requires a non-positive return.
 #'
 #' @returns A numeric vector of the same length as `e_t` representing the
 #'   asymmetric return component.
@@ -31,7 +32,7 @@ compute_eta <- function(e_t, signs) {
     stop("`signs` must contain only -1 and 1.")
   }
 
-  if (all(signs * e_t > 0)) {
+  if (all(signs * e_t >= 0)) {
     return(e_t)
   }
 

@@ -18,6 +18,7 @@ compute_irf(
   calc_kirf = FALSE,
   calc_sirf = FALSE,
   calc_wirf = FALSE,
+  higher_moment_mode = c("hafner", "pathwise"),
   bekk_bootstrap = NULL,
   ci_level = 0.95,
   bootstrap_cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE),
@@ -52,6 +53,11 @@ the requested IRF types: variance impulse response functions (VIRFs),
 correlation impulse response functions (CIRFs), kurtosis impulse response
 functions (KIRFs), skewness impulse response functions (SIRFs), and
 weights impulse response functions (WIRFs) for optimal portfolio weights.}
+
+\item{higher_moment_mode}{Normalization used for KIRFs and SIRFs.
+\code{"hafner"} first averages the simulated raw third- and fourth-order moments
+and then standardizes by the corresponding averaged second moments.
+\code{"pathwise"} standardizes each simulated path before averaging.}
 
 \item{bekk_bootstrap}{Optional \code{"bekkBootstrap"} object. If supplied,
 \code{compute_irf()} recomputes the selected IRFs for each converged bootstrap

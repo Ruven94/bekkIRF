@@ -30,7 +30,12 @@
 #' @returns An object of class `"bekkBootstrap"` containing bootstrap parameter
 #'   arrays `C0`, `A`, `G`, optionally `B`, diagnostic vectors `converged`
 #'   and `error`, and a `settings` list with bootstrap choices and
-#'   standardized-innovation filtering diagnostics.
+#'   standardized-innovation filtering diagnostics. `converged` is a
+#'   conservative acceptance flag: estimates must be finite, `BEKK_valid`
+#'   must be true, and the optimizer must stop before `max_iter`. BEKKs does
+#'   not expose a separate convergence flag, so fits reaching the iteration
+#'   limit are excluded even if they might have converged on that iteration.
+#'   The `fit_diagnostics` data frame retains iteration counts and validity.
 #'
 #' @examples
 #' \dontrun{
@@ -247,13 +252,17 @@ bekk_bootstrap <- function(bekk_model,
       ))
     }
 
+    diagnostics <- bekk_bootstrap_fit_diagnostics(fit, fit_params, max_iter)
+
     list(
       C0 = fit_params$C0,
       A = fit_params$A,
       G = fit_params$G,
       B = if (asym) fit_params$B else NULL,
-      converged = TRUE,
-      error = NA_character_
+      converged = diagnostics$accepted,
+      error = diagnostics$error,
+      iter = diagnostics$iter,
+      valid = diagnostics$valid
     )
   }
 
@@ -263,6 +272,8 @@ bekk_bootstrap <- function(bekk_model,
   B_boot <- if (asym) array(NA_real_, dim = c(K, K, bootsamp)) else NULL
   converged <- rep(FALSE, bootsamp)
   error <- rep(NA_character_, bootsamp)
+  fit_iter <- rep(NA_real_, bootsamp)
+  fit_valid <- rep(NA, bootsamp)
 
   chunks <- split(seq_len(bootsamp), ceiling(seq_len(bootsamp) / chunk_size))
 
@@ -283,7 +294,8 @@ bekk_bootstrap <- function(bekk_model,
         "worker_fun", "seed", "N", "K", "xi", "xi_resample_n", "H_start", "root_type",
         "C0", "A", "G", "B", "asym", "signs", "matroot", "compute_eta",
         "bekk_spec_model", "max_iter", "crit", "center",
-        "bekk_extract_parameters", "bekk_parameter_matrix", "bekk_model_type"
+        "bekk_extract_parameters", "bekk_parameter_matrix", "bekk_model_type",
+        "bekk_bootstrap_fit_diagnostics"
       ),
       envir = environment()
     )
@@ -311,12 +323,22 @@ bekk_bootstrap <- function(bekk_model,
       }
       converged[b] <- isTRUE(res$converged)
       error[b] <- res$error
+      if (!is.null(res$iter)) fit_iter[b] <- res$iter
+      if (!is.null(res$valid)) fit_valid[b] <- res$valid
     }
 
     done <- done + length(chunk)
     if (!is.null(pb)) {
       utils::setTxtProgressBar(pb, done)
     }
+  }
+
+  if (any(!converged)) {
+    warning(
+      sum(!converged), " of ", bootsamp,
+      " bootstrap fits were excluded; inspect `error` and `fit_diagnostics`.",
+      call. = FALSE
+    )
   }
 
   out <- list(
@@ -326,6 +348,8 @@ bekk_bootstrap <- function(bekk_model,
     B = B_boot,
     converged = converged,
     error = error,
+    fit_diagnostics = data.frame(iter = fit_iter, valid = fit_valid,
+                                 accepted = converged),
     settings = list(
       bootsamp = bootsamp,
       cores = cores,
@@ -345,4 +369,25 @@ bekk_bootstrap <- function(bekk_model,
 
   class(out) <- "bekkBootstrap"
   out
+}
+
+bekk_bootstrap_fit_diagnostics <- function(fit, fit_params, max_iter) {
+  iter <- if (is.numeric(fit$iter) && length(fit$iter) == 1L &&
+              is.finite(fit$iter)) as.numeric(fit$iter) else NA_real_
+  valid <- isTRUE(fit$BEKK_valid)
+  finite <- all(is.finite(unlist(fit_params[c("C0", "A", "G", "B")],
+                                 use.names = FALSE))) &&
+    is.numeric(fit$log_likelihood) && length(fit$log_likelihood) == 1L &&
+    is.finite(fit$log_likelihood)
+  problems <- character()
+  if (!valid) problems <- c(problems, "BEKKs did not report a valid model")
+  if (!finite) problems <- c(problems, "Non-finite parameter estimates or log likelihood")
+  if (is.na(iter)) {
+    problems <- c(problems, "Optimizer iteration count is unavailable")
+  } else if (iter >= max_iter) {
+    problems <- c(problems, "Optimizer reached max_iter; convergence is not confirmed")
+  }
+  list(accepted = length(problems) == 0L,
+       error = if (length(problems)) paste(problems, collapse = "; ") else NA_character_,
+       iter = iter, valid = valid)
 }

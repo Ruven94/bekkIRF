@@ -133,3 +133,23 @@ test_that("compute_eta is consistent with asymmetric BEKK recursion", {
     }
   }
 })
+
+test_that("joint-sign indicator includes zero components as in BEKKs", {
+  expect_equal(compute_eta(c(0, -2), c(-1, -1)), c(0, -2))
+  expect_equal(compute_eta(c(2, 0), c(1, -1)), c(2, 0))
+  expect_equal(compute_eta(c(0, 2), c(-1, -1)), c(0, 0))
+})
+
+test_that("C++ recursion keeps the asymmetric effect for a zero shock component", {
+  fit <- list(
+    data = matrix(1, nrow = 3, ncol = 2),
+    H_t = matrix(rep(as.vector(diag(2)), 3), nrow = 3, byrow = TRUE),
+    C0 = diag(0.1, 2), A = diag(0.2, 2), G = diag(0.8, 2),
+    B = diag(0.3, 2), asymmetric = TRUE, signs = c(-1, -1)
+  )
+  out <- compute_irf(fit, shock = c(0, -2), time = 2, simsamp = 1,
+                     n.ahead = 1, calc_cirf = FALSE)
+  expected <- (0.2^2 + 0.3^2) * tcrossprod(c(0, -2)) -
+    0.2^2 * tcrossprod(c(1, 1))
+  expect_equal(drop(out$VIRF_mean), expected[lower.tri(expected, diag = TRUE)])
+})

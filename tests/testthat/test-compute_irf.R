@@ -184,7 +184,8 @@ test_that("compute_irf uses cholesky root orientation for higher moments", {
     calc_cirf = FALSE,
     calc_kirf = TRUE,
     calc_sirf = TRUE,
-    calc_wirf = FALSE
+    calc_wirf = FALSE,
+    higher_moment_mode = "pathwise"
   )
 
   xi <- compute_xi(H_t, xi_input, root_type = "chol")
@@ -238,6 +239,62 @@ test_that("compute_irf uses cholesky root orientation for higher moments", {
     unname(shock_moments$skewness - base_moments$skewness),
     tolerance = 1e-12
   )
+})
+
+test_that("higher_moment_mode controls only higher-moment aggregation", {
+  K <- 2
+  N <- 40
+  x <- seq(-1.5, 1.5, length.out = N)
+  data <- cbind(
+    series1 = x + 0.2 * x^2,
+    series2 = -0.5 * x + 0.4 * x^3
+  )
+  H_t <- matrix(rep(as.vector(diag(K)), times = N), nrow = N, byrow = TRUE)
+
+  bekk_model <- list(
+    H_t = H_t,
+    data = data,
+    C0 = matrix(c(0.20, 0.04,
+                  0.00, 0.18), nrow = K),
+    A = matrix(c(0.22, 0.18,
+                 -0.08, 0.26), nrow = K),
+    G = matrix(c(0.58, 0.10,
+                 0.03, 0.54), nrow = K),
+    asymmetric = FALSE
+  )
+
+  common_args <- list(
+    bekk_model = bekk_model,
+    root_type = "spectral",
+    shock_type = "user_defined",
+    shock = c(1.2, -0.9),
+    time = 20,
+    simsamp = 12,
+    n.ahead = 4,
+    seed = 17,
+    calc_virf = TRUE,
+    calc_cirf = TRUE,
+    calc_kirf = TRUE,
+    calc_sirf = TRUE,
+    calc_wirf = TRUE
+  )
+
+  out_default <- do.call(compute_irf, common_args)
+  out_hafner <- do.call(compute_irf, c(common_args, list(higher_moment_mode = "hafner")))
+  out_pathwise <- do.call(compute_irf, c(common_args, list(higher_moment_mode = "pathwise")))
+
+  expect_equal(out_default$settings$higher_moment_mode, "hafner")
+  expect_equal(out_hafner$settings$higher_moment_mode, "hafner")
+  expect_equal(out_pathwise$settings$higher_moment_mode, "pathwise")
+
+  expect_equal(out_default$KIRF_mean, out_hafner$KIRF_mean)
+  expect_equal(out_default$SIRF_mean, out_hafner$SIRF_mean)
+  expect_equal(out_hafner$VIRF_mean, out_pathwise$VIRF_mean)
+  expect_equal(out_hafner$CIRF_mean, out_pathwise$CIRF_mean)
+  expect_equal(out_hafner$WIRF_mean, out_pathwise$WIRF_mean)
+
+  expect_false(isTRUE(all.equal(out_hafner$KIRF_mean, out_pathwise$KIRF_mean)))
+  expect_false(isTRUE(all.equal(out_hafner$SIRF_mean, out_pathwise$SIRF_mean)))
 })
 
 test_that("compute_irf supports BEKKs bekk, dbekk, and sbekk model outputs", {

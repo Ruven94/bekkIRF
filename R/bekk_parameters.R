@@ -32,8 +32,16 @@ bekk_parameter_matrix <- function(bekk_model,
     mat <- as.matrix(bekk_model[[matrix_name]])
   } else if (!is.null(bekk_model[[scalar_name]])) {
     scalar <- as.numeric(bekk_model[[scalar_name]])
-    if (length(scalar) != 1L || is.na(scalar)) {
-      stop("`bekk_model$", scalar_name, "` must be a single numeric scalar.")
+    if (length(scalar) != 1L || !is.finite(scalar)) {
+      stop("`bekk_model$", scalar_name, "` must be a single finite numeric scalar.")
+    }
+    if (scalar_name %in% c("a", "b", "g")) {
+      if (scalar < 0) {
+        stop("`bekk_model$", scalar_name, "` must be non-negative.")
+      }
+      # BEKKs scalar models use a * e e' + g * H (+ b * I * e e'),
+      # whereas the matrix recursion uses A' e e' A + G' H G.
+      scalar <- sqrt(scalar)
     }
     mat <- diag(scalar, K)
   } else if (required) {

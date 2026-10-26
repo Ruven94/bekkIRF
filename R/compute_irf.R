@@ -22,6 +22,10 @@
 #'   correlation impulse response functions (CIRFs), kurtosis impulse response
 #'   functions (KIRFs), skewness impulse response functions (SIRFs), and
 #'   weights impulse response functions (WIRFs) for optimal portfolio weights.
+#' @param higher_moment_mode Normalization used for KIRFs and SIRFs.
+#'   `"hafner"` first averages the simulated raw third- and fourth-order moments
+#'   and then standardizes by the corresponding averaged second moments.
+#'   `"pathwise"` standardizes each simulated path before averaging.
 #' @param bekk_bootstrap Optional `"bekkBootstrap"` object. If supplied,
 #'   `compute_irf()` recomputes the selected IRFs for each converged bootstrap
 #'   parameter draw and returns pointwise bootstrap confidence intervals.
@@ -80,6 +84,7 @@ compute_irf <- function(bekk_model,
                         calc_kirf = FALSE,
                         calc_sirf = FALSE,
                         calc_wirf = FALSE,
+                        higher_moment_mode = c("hafner", "pathwise"),
                         bekk_bootstrap = NULL,
                         ci_level = 0.95,
                         bootstrap_cores = max(1L, parallel::detectCores() - 1L, na.rm = TRUE),
@@ -87,6 +92,7 @@ compute_irf <- function(bekk_model,
                         bootstrap_chunk_size = NULL) {
   root_type <- match.arg(root_type)
   shock_type <- match.arg(shock_type)
+  higher_moment_mode <- match.arg(higher_moment_mode)
 
   root_type <- switch(
     root_type,
@@ -96,6 +102,7 @@ compute_irf <- function(bekk_model,
     chol = "chol"
   )
   root_type_id <- switch(root_type, spec = 0L, chol = 1L)
+  higher_moment_mode_id <- switch(higher_moment_mode, hafner = 0L, pathwise = 1L)
 
   required_fields <- c("H_t", "data", "C0")
   missing_fields <- setdiff(required_fields, names(bekk_model))
@@ -167,6 +174,7 @@ compute_irf <- function(bekk_model,
     psi_kurt = psi_kurt,
     psi_skew = psi_skew,
     root_type = root_type_id,
+    higher_moment_mode = higher_moment_mode_id,
     asym = asym,
     simsamp = as.integer(simsamp),
     n_ahead = as.integer(n.ahead),
@@ -181,6 +189,7 @@ compute_irf <- function(bekk_model,
   out$settings <- list(
     root_type = root_type,
     shock_type = shock_type,
+    higher_moment_mode = higher_moment_mode,
     time = time,
     simsamp = as.integer(simsamp),
     n.ahead = as.integer(n.ahead),
@@ -216,6 +225,7 @@ compute_irf <- function(bekk_model,
     psi_kurt = psi_kurt,
     psi_skew = psi_skew,
     root_type_id = root_type_id,
+    higher_moment_mode_id = higher_moment_mode_id,
     asym = asym,
     simsamp = as.integer(simsamp),
     n_ahead = as.integer(n.ahead),
